@@ -1,5 +1,5 @@
 /**
- * PROYECTO DELTA POS - Gestión de Estado Global (State Management)
+ * PROYECTO DELTA POS - Gestión de Estado Global (Sincronizado con API y PostgreSQL)
  */
 
 import { INITIAL_PRODUCTS } from './products.js';
@@ -41,7 +41,9 @@ const DEFAULT_TABLES = [
 class StateManager {
   constructor() {
     this.listeners = [];
+    this.apiAvailable = true;
     this.loadState();
+    this.syncWithBackend();
   }
 
   loadState() {
@@ -57,7 +59,7 @@ class StateManager {
     const savedTables = localStorage.getItem(STORAGE_KEYS.TABLES);
     this.tables = savedTables ? JSON.parse(savedTables) : DEFAULT_TABLES;
 
-    // Cargar comanda por mesa (objeto { tableId: { items: [], customer: '', notes: '', ticketId: '' } })
+    // Cargar comanda por mesa
     const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
     this.orders = savedOrders ? JSON.parse(savedOrders) : {};
 
@@ -76,10 +78,56 @@ class StateManager {
     // Filtros de vista activa
     this.selectedCategory = 'todos';
     this.searchQuery = '';
-    this.activeView = 'pos'; // 'pos', 'tables', 'sales', 'settings'
+    this.activeView = 'pos';
 
-    // Asegurar que la mesa activa tenga un objeto comanda inicializado
     this.ensureOrderExists(this.activeTableId);
+  }
+
+  async syncWithBackend() {
+    try {
+      // 1. Sincronizar productos
+      const prodRes = await fetch('/api/products');
+      if (prodRes.ok) {
+        const prods = await prodRes.json();
+        if (Array.isArray(prods) && prods.length > 0) {
+          this.products = prods;
+        }
+      }
+
+      // 2. Sincronizar mesas
+      const tablesRes = await fetch('/api/tables');
+      if (tablesRes.ok) {
+        const tables = await tablesRes.json();
+        if (Array.isArray(tables) && tables.length > 0) {
+          this.tables = tables.map(t => ({
+            id: t.id,
+            name: t.name,
+            capacity: t.capacity,
+            status: t.status
+          }));
+          // Cargar comandas activas
+          tables.forEach(t => {
+            if (t.activeOrder && t.activeOrder.items && t.activeOrder.items.length > 0) {
+              this.orders[t.id] = t.activeOrder;
+            }
+          });
+        }
+      }
+
+      // 3. Sincronizar historial de ventas
+      const salesRes = await fetch('/api/sales');
+      if (salesRes.ok) {
+        const sales = await salesRes.json();
+        if (Array.isArray(sales)) {
+          this.salesHistory = sales;
+        }
+      }
+
+      this.saveState();
+      this.notify();
+    } catch (e) {
+      console.log('Modo local / API no disponible de momento, usando almacenamiento local.');
+    }
   }
 
   saveState() {
@@ -101,7 +149,7 @@ class StateManager {
         discount: 0,
         notes: '',
         createdAt: new Date().toISOString(),
-        status: 'open' // 'open', 'sent_to_kitchen', 'billed'
+        status: 'open'
       };
       this.saveState();
     }
@@ -123,7 +171,6 @@ class StateManager {
     const order = this.getCurrentOrder();
     updaterFn(order);
 
-    // Actualizar estado de la mesa (si tiene items está ocupada, si no, libre)
     const table = this.tables.find(t => t.id === this.activeTableId);
     if (table) {
       if (order.items && order.items.length > 0) {
@@ -135,9 +182,16 @@ class StateManager {
 
     this.saveState();
     this.notify();
+
+    // Sincronizar con servidor de fondo si está conectado
+    fetch(`/api/tables/${this.activeTableId}/order`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order, status: table ? table.status : 'busy' })
+    }).catch(() => {});
   }
 
-  completeCurrentSale(paymentData) {
+  async completeCurrentSale(paymentData) {
     const order = this.getCurrentOrder();
     if (!order || !order.items || order.items.length === 0) return null;
 
@@ -151,7 +205,7 @@ class StateManager {
       payment: paymentData
     };
 
-    // Reducir stock
+    // Reducir stock local
     order.items.forEach(item => {
       const prod = this.products.find(p => p.id === item.productId);
       if (prod && typeof prod.stock === 'number') {
@@ -160,6 +214,31 @@ class StateManager {
     });
 
     this.salesHistory.unshift(completedSale);
+
+    // Enviar a la base de datos PostgreSQL
+    try {
+      await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketNumber: order.ticketNumber,
+          tableId: this.activeTableId,
+          tableName: completedSale.tableName,
+          customerName: order.customerName,
+          cashier: this.settings.cashierName,
+          subtotal: paymentData.totals.subtotal,
+          discount: paymentData.totals.discount,
+          tax: paymentData.totals.tax,
+          total: paymentData.totals.total,
+          paymentMethod: paymentData.method,
+          amountTendered: paymentData.amountTendered,
+          change: paymentData.change,
+          items: order.items
+        })
+      });
+    } catch (e) {
+      console.log('Venta guardada localmente');
+    }
 
     // Limpiar comanda de la mesa activa
     delete this.orders[this.activeTableId];
@@ -188,4 +267,3 @@ class StateManager {
 }
 
 export const state = new StateManager();
-
