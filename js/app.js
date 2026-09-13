@@ -94,21 +94,40 @@ class DeltaPOSApp {
   checkSession() {
     const user = localStorage.getItem('delta_user');
     if (user && this.loginModal) {
+      this.loginModal.style.display = 'none';
       this.loginModal.classList.add('hidden');
+      this.loginModal.classList.remove('flex');
     } else if (this.loginModal) {
+      this.loginModal.style.display = 'flex';
       this.loginModal.classList.remove('hidden');
+      this.loginModal.classList.add('flex');
     }
   }
 
   bindEvents() {
-    // Evento de Login
+    // Evento de Login (Submit y Click)
+    const doLogin = (e) => {
+      if (e) e.preventDefault();
+      const usernameInput = document.getElementById('login-username');
+      const username = (usernameInput && usernameInput.value ? usernameInput.value : 'admin').trim();
+      localStorage.setItem('delta_user', JSON.stringify({ username, loggedAt: new Date().toISOString() }));
+      if (this.loginModal) {
+        this.loginModal.style.display = 'none';
+        this.loginModal.classList.add('hidden');
+        this.loginModal.classList.remove('flex');
+      }
+      this.renderCategories();
+      this.renderTablesSelector();
+      this.renderProducts();
+      this.renderComanda();
+    };
+
     if (this.loginForm) {
-      this.loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const username = document.getElementById('login-username').value.trim();
-        localStorage.setItem('delta_user', JSON.stringify({ username, loggedAt: new Date().toISOString() }));
-        if (this.loginModal) this.loginModal.classList.add('hidden');
-      });
+      this.loginForm.addEventListener('submit', doLogin);
+    }
+    const submitBtn = document.getElementById('login-submit-btn');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', doLogin);
     }
 
     // Evento de Logout
@@ -116,7 +135,11 @@ class DeltaPOSApp {
       this.logoutBtn.addEventListener('click', () => {
         if (confirm('¿Deseas cerrar sesión en Delta POS?')) {
           localStorage.removeItem('delta_user');
-          if (this.loginModal) this.loginModal.classList.remove('hidden');
+          if (this.loginModal) {
+            this.loginModal.style.display = 'flex';
+            this.loginModal.classList.remove('hidden');
+            this.loginModal.classList.add('flex');
+          }
         }
       });
     }
