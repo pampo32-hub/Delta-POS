@@ -1,5 +1,5 @@
 /**
- * PROYECTO DELTA POS - Conexión y Esquema de Base de Datos PostgreSQL
+ * PROYECTO DELTA POS - Conexión y Esquema de Base de Datos PostgreSQL Neon
  */
 
 import pg from 'pg';
@@ -8,11 +8,9 @@ dotenv.config();
 
 const { Pool } = pg;
 
-// Configuración de la conexión PostgreSQL con soporte SSL para Render
 // Configuración de la conexión PostgreSQL con soporte SSL para Neon y Render
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('ssl=true') 
   ssl: process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('ssl') || process.env.DATABASE_URL.includes('neon.tech'))
     ? { rejectUnauthorized: false } 
     : false
@@ -22,7 +20,6 @@ export async function query(text, params) {
   const start = Date.now();
   const res = await pool.query(text, params);
   const duration = Date.now() - start;
-  // console.log('Ejecutada consulta:', { text, duration, rows: res.rowCount });
   return res;
 }
 
@@ -52,7 +49,7 @@ export async function initDatabase() {
         id VARCHAR(50) PRIMARY KEY,
         nombre VARCHAR(100) NOT NULL,
         capacidad INT DEFAULT 4,
-        estado VARCHAR(30) DEFAULT 'free', -- 'free', 'busy', 'sent'
+        estado VARCHAR(30) DEFAULT 'free',
         comanda_activa JSONB DEFAULT '{}'::jsonb,
         actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -97,7 +94,6 @@ export async function initDatabase() {
 
 async function seedInitialData() {
   try {
-    // Comprobar si ya existen productos
     const prodRes = await pool.query('SELECT COUNT(*) FROM productos;');
     if (parseInt(prodRes.rows[0].count, 10) === 0) {
       console.log('🌱 Poblando catálogo inicial de productos...');
@@ -134,7 +130,6 @@ async function seedInitialData() {
       }
     }
 
-    // Comprobar mesas
     const tableRes = await pool.query('SELECT COUNT(*) FROM mesas;');
     if (parseInt(tableRes.rows[0].count, 10) === 0) {
       console.log('🌱 Creando mesas iniciales...');
@@ -167,4 +162,3 @@ async function seedInitialData() {
 }
 
 export default pool;
-

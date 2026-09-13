@@ -1,49 +1,25 @@
 {
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.7.0",
-    "helmet": "^8.3.0",
-    "jsonwebtoken": "^9.0.3",
-    "pg": "^8.23.0",
-    "qrcode": "^1.5.4",
-    "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3",
-    "sqlite3": "^5.1.7"
-  },
   "name": "delta-pos",
   "version": "2.0.0",
-  "description": "Sistema de Punto de Venta Minimalista Delta POS con PostgreSQL Neon y Node.js",
+  "description": "Sistema de Punto de Venta Minimalista Delta POS",
   "main": "server.js",
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "check:syntax": "node --check public/app.js && node --check public/sw.js && node --check public/offline-sync.js && node --check public/offline-db.js && node --check server.js",
-    "pretest": "npm run check:syntax",
-    "test": "node --test --test-concurrency=1 test/e2e/*.test.js"
     "dev": "node --watch server.js"
   },
-  "devDependencies": {
-    "puppeteer": "^25.10.0"
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "pg": "^8.12.0"
   },
-  "allowScripts": {
-    "puppeteer@25.10.0": true
-  }
   "keywords": [
     "pos",
     "restaurant",
     "point-of-sale",
     "postgresql",
-    "express",
-    "delta"
+    "express"
   ],
   "author": "Delta POS",
   "license": "ISC"

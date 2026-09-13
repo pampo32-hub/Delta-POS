@@ -153,7 +153,6 @@ class StateManager {
         discount: 0,
         notes: '',
         createdAt: new Date().toISOString(),
-        status: 'open' // 'open', 'sent_to_kitchen', 'billed'
         status: 'open'
       };
       this.saveState();
@@ -197,7 +196,6 @@ class StateManager {
     }).catch(() => {});
   }
 
-  completeCurrentSale(paymentData) {
   async completeCurrentSale(paymentData) {
     const order = this.getCurrentOrder();
     if (!order || !order.items || order.items.length === 0) return null;
