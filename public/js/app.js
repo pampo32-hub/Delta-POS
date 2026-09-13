@@ -105,6 +105,7 @@ class DeltaPOSApp {
   }
 
   bindEvents() {
+    // Evento de Login
     // Evento de Login (Submit y Click)
     const doLogin = (e) => {
       if (e) e.preventDefault();
@@ -123,6 +124,12 @@ class DeltaPOSApp {
     };
 
     if (this.loginForm) {
+      this.loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('login-username').value.trim();
+        localStorage.setItem('delta_user', JSON.stringify({ username, loggedAt: new Date().toISOString() }));
+        if (this.loginModal) this.loginModal.classList.add('hidden');
+      });
       this.loginForm.addEventListener('submit', doLogin);
     }
     const submitBtn = document.getElementById('login-submit-btn');
@@ -135,6 +142,7 @@ class DeltaPOSApp {
       this.logoutBtn.addEventListener('click', () => {
         if (confirm('¿Deseas cerrar sesión en Delta POS?')) {
           localStorage.removeItem('delta_user');
+          if (this.loginModal) this.loginModal.classList.remove('hidden');
           if (this.loginModal) {
             this.loginModal.style.display = 'flex';
             this.loginModal.classList.remove('hidden');
@@ -848,7 +856,15 @@ class DeltaPOSApp {
   }
 }
 
-// Inicializar la aplicación al cargar el DOM
-document.addEventListener('DOMContentLoaded', () => {
-  window.posApp = new DeltaPOSApp();
-});
+// Inicializar la aplicación de forma robusta con soporte para módulos diferidos
+function bootstrap() {
+  if (!window.posApp) {
+    window.posApp = new DeltaPOSApp();
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+  bootstrap();
+}

@@ -560,6 +560,47 @@
     </div>
   </div>
 
+  <!-- Script de Acceso Directo Garantizado -->
+  <script>
+    (function() {
+      function dismissLogin(e) {
+        if (e) e.preventDefault();
+        var modal = document.getElementById('login-modal');
+        if (modal) {
+          modal.style.setProperty('display', 'none', 'important');
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+        var usernameInput = document.getElementById('login-username');
+        var user = usernameInput && usernameInput.value ? usernameInput.value.trim() : 'admin';
+        localStorage.setItem('delta_user', JSON.stringify({ username: user, loggedAt: new Date().toISOString() }));
+      }
+
+      // Comprobar si ya estaba logueado
+      var saved = localStorage.getItem('delta_user');
+      if (saved) {
+        var modal = document.getElementById('login-modal');
+        if (modal) {
+          modal.style.setProperty('display', 'none', 'important');
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+      }
+
+      document.addEventListener('click', function(e) {
+        var btn = e.target && (e.target.id === 'login-submit-btn' || e.target.closest('#login-submit-btn'));
+        if (btn) {
+          dismissLogin(e);
+        }
+      });
+
+      var form = document.getElementById('login-form');
+      if (form) {
+        form.addEventListener('submit', dismissLogin);
+      }
+    })();
+  </script>
+
   <!-- Scripts Modulares -->
   <script type="module" src="js/app.js"></script>
 </body>
