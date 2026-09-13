@@ -53,6 +53,14 @@ body {
   display: flex;
 }
 
+.hidden {
+  display: none !important;
+}
+
+.flex {
+  display: flex !important;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
