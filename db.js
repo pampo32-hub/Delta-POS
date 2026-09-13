@@ -8,9 +8,11 @@ dotenv.config();
 
 const { Pool } = pg;
 
+// Configuración de la conexión PostgreSQL con soporte SSL para Render
 // Configuración de la conexión PostgreSQL con soporte SSL para Neon y Render
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('ssl=true') 
   ssl: process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('ssl') || process.env.DATABASE_URL.includes('neon.tech'))
     ? { rejectUnauthorized: false } 
     : false
