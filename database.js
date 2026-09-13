@@ -136,6 +136,7 @@ if (process.env.DATABASE_URL && !process.env.POS_DB_PATH) {
             lastID: (res.rows && res.rows[0] && res.rows[0].id) ? Number(res.rows[0].id) : 0,
             changes: res.rowCount || 0
           };
+          if (cb) cb.call(context, null);
           if (typeof cb === 'function') cb.call(context, null);
         })
         .catch(err => {
@@ -143,13 +144,16 @@ if (process.env.DATABASE_URL && !process.env.POS_DB_PATH) {
             pool.query(pgSql, params)
               .then(resRetry => {
                 const context = { lastID: 0, changes: resRetry.rowCount || 0 };
+                if (cb) cb.call(context, null);
                 if (typeof cb === 'function') cb.call(context, null);
               })
               .catch(errRetry => {
+                if (cb) cb(errRetry);
                 if (typeof cb === 'function') cb(errRetry);
               });
             return;
           }
+          if (cb) cb(err);
           if (typeof cb === 'function') cb(err);
         });
     },
@@ -162,15 +166,18 @@ if (process.env.DATABASE_URL && !process.env.POS_DB_PATH) {
       params = normalizeParams(params);
       const pgSql = convertSqlToPg(sql);
       if (!pgSql) {
+        if (cb) setImmediate(() => cb(null, null));
         if (typeof cb === 'function') setImmediate(() => cb(null, null));
         return;
       }
 
       pool.query(pgSql, params)
         .then(res => {
+          if (cb) cb(null, res.rows[0] || null);
           if (typeof cb === 'function') cb(null, res.rows[0] || null);
         })
         .catch(err => {
+          if (cb) cb(err);
           if (typeof cb === 'function') cb(err);
         });
     },
@@ -183,24 +190,29 @@ if (process.env.DATABASE_URL && !process.env.POS_DB_PATH) {
       params = normalizeParams(params);
       const pgSql = convertSqlToPg(sql);
       if (!pgSql) {
+        if (cb) setImmediate(() => cb(null, []));
         if (typeof cb === 'function') setImmediate(() => cb(null, []));
         return;
       }
 
       pool.query(pgSql, params)
         .then(res => {
+          if (cb) cb(null, res.rows || []);
           if (typeof cb === 'function') cb(null, res.rows || []);
         })
         .catch(err => {
+          if (cb) cb(err);
           if (typeof cb === 'function') cb(err);
         });
     },
 
     serialize(cb) {
+      if (cb) cb();
       if (typeof cb === 'function') cb();
     },
 
     close(cb) {
+      pool.end().then(() => { if (cb) cb(null); }).catch(e => { if (cb) cb(e); });
       pool.end().then(() => { if (typeof cb === 'function') cb(null); }).catch(e => { if (typeof cb === 'function') cb(e); });
     }
   };
