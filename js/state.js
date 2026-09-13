@@ -1,4 +1,5 @@
 /**
+ * PROYECTO DELTA POS - Gestión de Estado Global (State Management)
  * PROYECTO DELTA POS - Gestión de Estado Global (Sincronizado con API y PostgreSQL)
  */
 
@@ -59,6 +60,7 @@ class StateManager {
     const savedTables = localStorage.getItem(STORAGE_KEYS.TABLES);
     this.tables = savedTables ? JSON.parse(savedTables) : DEFAULT_TABLES;
 
+    // Cargar comanda por mesa (objeto { tableId: { items: [], customer: '', notes: '', ticketId: '' } })
     // Cargar comanda por mesa
     const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
     this.orders = savedOrders ? JSON.parse(savedOrders) : {};
@@ -78,8 +80,10 @@ class StateManager {
     // Filtros de vista activa
     this.selectedCategory = 'todos';
     this.searchQuery = '';
+    this.activeView = 'pos'; // 'pos', 'tables', 'sales', 'settings'
     this.activeView = 'pos';
 
+    // Asegurar que la mesa activa tenga un objeto comanda inicializado
     this.ensureOrderExists(this.activeTableId);
   }
 
@@ -149,6 +153,7 @@ class StateManager {
         discount: 0,
         notes: '',
         createdAt: new Date().toISOString(),
+        status: 'open' // 'open', 'sent_to_kitchen', 'billed'
         status: 'open'
       };
       this.saveState();
@@ -171,6 +176,7 @@ class StateManager {
     const order = this.getCurrentOrder();
     updaterFn(order);
 
+    // Actualizar estado de la mesa (si tiene items está ocupada, si no, libre)
     const table = this.tables.find(t => t.id === this.activeTableId);
     if (table) {
       if (order.items && order.items.length > 0) {
@@ -191,6 +197,7 @@ class StateManager {
     }).catch(() => {});
   }
 
+  completeCurrentSale(paymentData) {
   async completeCurrentSale(paymentData) {
     const order = this.getCurrentOrder();
     if (!order || !order.items || order.items.length === 0) return null;
@@ -205,6 +212,7 @@ class StateManager {
       payment: paymentData
     };
 
+    // Reducir stock
     // Reducir stock local
     order.items.forEach(item => {
       const prod = this.products.find(p => p.id === item.productId);
@@ -267,3 +275,4 @@ class StateManager {
 }
 
 export const state = new StateManager();
+

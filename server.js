@@ -218,3 +218,4 @@ app.listen(PORT, async () => {
   console.log(`🚀 GastroPOS Delta Backend ejecutándose en http://localhost:${PORT}`);
   await initDatabase();
 });
+
