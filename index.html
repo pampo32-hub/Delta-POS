@@ -241,19 +241,19 @@
       <div class="space-y-1.5 text-xs">
         <div class="flex justify-between text-slate-500">
           <span>Subtotal</span>
-          <span id="subtotal-display" class="font-semibold text-slate-700">$0.00</span>
+          <span id="subtotal-display" class="font-semibold text-slate-700">₡0</span>
         </div>
         <div class="flex justify-between text-slate-500">
-          <span id="tax-label">IVA (16%):</span>
-          <span id="tax-display" class="font-semibold text-slate-700">$0.00</span>
+          <span id="tax-label">IVA (13%):</span>
+          <span id="tax-display" class="font-semibold text-slate-700">₡0</span>
         </div>
         <div class="flex justify-between text-rose-500 text-xs cursor-pointer hover:underline" id="add-discount-btn">
           <span class="flex items-center gap-1">🏷️ Descuento:</span>
-          <span id="discount-display" class="font-semibold">$0.00</span>
+          <span id="discount-display" class="font-semibold">₡0</span>
         </div>
         <div class="flex justify-between items-baseline pt-2 border-t border-slate-200">
           <span class="text-sm font-extrabold text-slate-900 tracking-tight">TOTAL</span>
-          <span id="total-display" class="text-2xl font-black text-slate-900 font-mono tracking-tight">$0.00</span>
+          <span id="total-display" class="text-2xl font-black text-slate-900 font-mono tracking-tight">₡0</span>
         </div>
       </div>
 
@@ -404,7 +404,7 @@
       <div class="grid grid-cols-4 gap-3 my-4 flex-shrink-0">
         <div class="bg-emerald-50 border border-emerald-200/60 p-3.5 rounded-2xl">
           <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Total Facturado</span>
-          <span id="metric-total-sales" class="text-xl font-black text-emerald-800 font-mono">$0.00</span>
+          <span id="metric-total-sales" class="text-xl font-black text-emerald-800 font-mono">₡0</span>
         </div>
         <div class="bg-blue-50 border border-blue-200/60 p-3.5 rounded-2xl">
           <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">Tickets Cobrados</span>
@@ -412,11 +412,11 @@
         </div>
         <div class="bg-purple-50 border border-purple-200/60 p-3.5 rounded-2xl">
           <span class="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">Ticket Promedio</span>
-          <span id="metric-avg-sales" class="text-xl font-black text-purple-800 font-mono">$0.00</span>
+          <span id="metric-avg-sales" class="text-xl font-black text-purple-800 font-mono">₡0</span>
         </div>
         <div class="bg-amber-50 border border-amber-200/60 p-3.5 rounded-2xl">
           <span class="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">En Efectivo</span>
-          <span id="metric-cash-sales" class="text-xl font-black text-amber-800 font-mono">$0.00</span>
+          <span id="metric-cash-sales" class="text-xl font-black text-amber-800 font-mono">₡0</span>
         </div>
       </div>
 
@@ -454,10 +454,10 @@
 
       <div class="my-5 bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-center">
         <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total a Pagar</span>
-        <span id="modal-total-display" class="text-3xl font-black text-slate-900 font-mono tracking-tight">$0.00</span>
+        <span id="modal-total-display" class="text-3xl font-black text-slate-900 font-mono tracking-tight">₡0</span>
         <div class="flex justify-center gap-4 text-xs text-slate-500 mt-1">
-          <span>Subtotal: <b id="modal-subtotal-display">$0.00</b></span>
-          <span>IVA: <b id="modal-tax-display">$0.00</b></span>
+          <span>Subtotal: <b id="modal-subtotal-display">₡0</b></span>
+          <span>IVA (13%): <b id="modal-tax-display">₡0</b></span>
         </div>
       </div>
 
@@ -472,7 +472,7 @@
               💳 Tarjeta
             </button>
             <button data-method="transfer" class="payment-method-tab border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer">
-              📱 Transferencia
+              📱 Transferencia / Sinpe Móvil
             </button>
           </div>
         </div>
@@ -481,11 +481,11 @@
           <div>
             <label class="text-xs font-bold text-slate-600 block mb-1">Monto Recibido</label>
             <div class="relative">
-              <span class="absolute inset-y-0 left-3 flex items-center font-bold text-slate-400 text-sm">$</span>
+              <span class="absolute inset-y-0 left-3 flex items-center font-bold text-slate-400 text-sm">₡</span>
               <input 
                 type="number" 
                 id="amount-tendered" 
-                step="0.01" 
+                step="1" 
                 class="w-full pl-8 pr-4 py-3 rounded-xl border-2 border-slate-200 focus:border-emerald-600 font-mono font-bold text-lg text-slate-900 outline-none"
               >
             </div>
@@ -493,15 +493,15 @@
 
           <div class="grid grid-cols-5 gap-1.5">
             <button data-value="exact" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">Exacto</button>
-            <button data-value="10" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">$10</button>
-            <button data-value="20" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">$20</button>
-            <button data-value="50" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">$50</button>
-            <button data-value="100" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">$100</button>
+            <button data-value="2000" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">₡2.000</button>
+            <button data-value="5000" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">₡5.000</button>
+            <button data-value="10000" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">₡10.000</button>
+            <button data-value="20000" class="quick-cash-btn py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">₡20.000</button>
           </div>
 
           <div class="bg-slate-100/80 p-3 rounded-xl flex items-center justify-between">
             <span class="text-xs font-bold text-slate-500">Cambio / Vuelto:</span>
-            <span id="change-display" class="text-xl font-black text-emerald-600 font-mono">$0.00</span>
+            <span id="change-display" class="text-xl font-black text-emerald-600 font-mono">₡0</span>
           </div>
         </div>
       </div>

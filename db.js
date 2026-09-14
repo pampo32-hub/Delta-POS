@@ -37,7 +37,7 @@ export async function initDatabase() {
         categoria VARCHAR(50) NOT NULL,
         imagen TEXT,
         stock INT DEFAULT 50,
-        impuesto NUMERIC(4, 2) DEFAULT 0.16,
+        impuesto NUMERIC(4, 2) DEFAULT 0.13,
         activo BOOLEAN DEFAULT true,
         creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -99,25 +99,25 @@ async function seedInitialData() {
       console.log('🌱 Poblando catálogo inicial de productos...');
       
       const initialItems = [
-        ['p1', 'CAF-001', 'Café Latte Art', 4.50, 'cafeteria', 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80', 45],
-        ['p2', 'CAF-002', 'Croissant Butter Mantequilla', 3.80, 'cafeteria', 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80', 22],
-        ['p3', 'CAF-003', 'Iced Mocha Frappé', 5.50, 'cafeteria', 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=600&q=80', 30],
-        ['p4', 'CAF-004', 'Té Verde Matcha Orgánico', 4.20, 'cafeteria', 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80', 50],
-        ['p5', 'HAM-001', 'Cheeseburger Deluxe Black Angus', 14.90, 'hamburguesas', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80', 18],
-        ['p6', 'HAM-002', 'Bacon Crispy BBQ Burger', 15.50, 'hamburguesas', 'https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=600&q=80', 14],
-        ['p7', 'GRL-001', 'Filete Mignon Corte Fino', 28.50, 'platos', 'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=600&q=80', 10],
-        ['p8', 'GRL-002', 'Salmón Grillé a las Finas Hierbas', 24.00, 'platos', 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=600&q=80', 12],
-        ['p9', 'PAS-001', 'Pasta Carbonara Auténtica', 16.50, 'pastas', 'https://images.unsplash.com/photo-1612874742237-6526221588e3?auto=format&fit=crop&w=600&q=80', 25],
-        ['p10', 'PAS-002', 'Risotto de Setas & Trufa', 19.00, 'pastas', 'https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=600&q=80', 15],
-        ['p11', 'PAS-003', 'Pizza Margherita Clásica', 13.50, 'pastas', 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=600&q=80', 20],
-        ['p12', 'ENT-001', 'Ensalada César con Pollo Grill', 12.00, 'entradas', 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?auto=format&fit=crop&w=600&q=80', 30],
-        ['p13', 'ENT-002', 'Tacos al Pastor Gourmet (x3)', 14.00, 'entradas', 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=600&q=80', 20],
-        ['p14', 'ENT-003', 'Bruschetta de Tomate & Albahaca', 8.50, 'entradas', 'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?auto=format&fit=crop&w=600&q=80', 25],
-        ['p15', 'BEB-001', 'Cerveza Artesanal IPA 355ml', 6.00, 'bebidas', 'https://images.unsplash.com/photo-1608270586620-248524c67de9?auto=format&fit=crop&w=600&q=80', 48],
-        ['p16', 'BEB-002', 'Copa de Vino Tinto Rioja Reserva', 8.00, 'bebidas', 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=600&q=80', 36],
-        ['p17', 'BEB-003', 'Agua Mineral de Manantial 500ml', 3.00, 'bebidas', 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=600&q=80', 60],
-        ['p18', 'POS-001', 'Tarta de Queso con Frutos Rojos', 7.50, 'postres', 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=600&q=80', 14],
-        ['p19', 'POS-002', 'Pastel Supreme de Chocolate Belga', 7.00, 'postres', 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=600&q=80', 16]
+        ['p1', 'CAF-001', 'Café Latte Art', 2500, 'cafeteria', 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80', 45],
+        ['p2', 'CAF-002', 'Croissant Butter Mantequilla', 2000, 'cafeteria', 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80', 22],
+        ['p3', 'CAF-003', 'Iced Mocha Frappé', 3200, 'cafeteria', 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?auto=format&fit=crop&w=600&q=80', 30],
+        ['p4', 'CAF-004', 'Té Verde Matcha Orgánico', 2800, 'cafeteria', 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80', 50],
+        ['p5', 'HAM-001', 'Cheeseburger Deluxe Black Angus', 6500, 'hamburguesas', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80', 18],
+        ['p6', 'HAM-002', 'Bacon Crispy BBQ Burger', 7200, 'hamburguesas', 'https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?auto=format&fit=crop&w=600&q=80', 14],
+        ['p7', 'GRL-001', 'Filete Mignon Corte Fino', 14500, 'platos', 'https://images.unsplash.com/photo-1558030006-450675393462?auto=format&fit=crop&w=600&q=80', 10],
+        ['p8', 'GRL-002', 'Salmón Grillé a las Finas Hierbas', 12800, 'platos', 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=600&q=80', 12],
+        ['p9', 'PAS-001', 'Pasta Carbonara Auténtica', 7500, 'pastas', 'https://images.unsplash.com/photo-1612874742237-6526221588e3?auto=format&fit=crop&w=600&q=80', 25],
+        ['p10', 'PAS-002', 'Risotto de Setas & Trufa', 8900, 'pastas', 'https://images.unsplash.com/photo-1633964913295-ceb43826e7c9?auto=format&fit=crop&w=600&q=80', 15],
+        ['p11', 'PAS-003', 'Pizza Margherita Clásica', 6500, 'pastas', 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&w=600&q=80', 20],
+        ['p12', 'ENT-001', 'Ensalada César con Pollo Grill', 5500, 'entradas', 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?auto=format&fit=crop&w=600&q=80', 30],
+        ['p13', 'ENT-002', 'Tacos al Pastor Gourmet (x3)', 6000, 'entradas', 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=600&q=80', 20],
+        ['p14', 'ENT-003', 'Bruschetta de Tomate & Albahaca', 4200, 'entradas', 'https://images.unsplash.com/photo-1572695157366-5e585ab2b69f?auto=format&fit=crop&w=600&q=80', 25],
+        ['p15', 'BEB-001', 'Cerveza Artesanal IPA 355ml', 3500, 'bebidas', 'https://images.unsplash.com/photo-1608270586620-248524c67de9?auto=format&fit=crop&w=600&q=80', 48],
+        ['p16', 'BEB-002', 'Copa de Vino Tinto Rioja Reserva', 4500, 'bebidas', 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=600&q=80', 36],
+        ['p17', 'BEB-003', 'Agua Mineral de Manantial 500ml', 1500, 'bebidas', 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=600&q=80', 60],
+        ['p18', 'POS-001', 'Tarta de Queso con Frutos Rojos', 3800, 'postres', 'https://images.unsplash.com/photo-1533134242443-d4fd215305ad?auto=format&fit=crop&w=600&q=80', 14],
+        ['p19', 'POS-002', 'Pastel Supreme de Chocolate Belga', 3500, 'postres', 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=600&q=80', 16]
       ];
 
       for (const item of initialItems) {

@@ -317,7 +317,7 @@ class DeltaPOSApp {
     if (this.addDiscountBtn) {
       this.addDiscountBtn.addEventListener('click', () => {
         const currentDiscount = state.getCurrentOrder().discount || 0;
-        const discountInput = prompt('Ingresa el monto de descuento en moneda ($):', currentDiscount > 0 ? currentDiscount : '');
+        const discountInput = prompt('Ingresa el monto de descuento en Colones (₡):', currentDiscount > 0 ? currentDiscount : '');
         if (discountInput !== null) {
           const discountVal = parseFloat(discountInput) || 0;
           CartController.setDiscount(discountVal);
@@ -746,7 +746,7 @@ class DeltaPOSApp {
       this.customerInput.value = order.customerName || '';
     }
     if (this.itemCountBadge) {
-      this.itemCountBadge.textContent = `${totals.itemCount} ítems`;
+      this.itemCountBadge.textContent = `${totals.itemCount} ${totals.itemCount === 1 ? 'ítem' : 'ítems'}`;
     }
 
     // Renderizar lista de ítems
@@ -754,22 +754,30 @@ class DeltaPOSApp {
     this.comandaItemsContainer.innerHTML = '';
 
     if (!order.items || order.items.length === 0) {
-      if (this.comandaEmptyState) this.comandaEmptyState.classList.remove('hidden');
+      if (this.comandaEmptyState) {
+        this.comandaEmptyState.classList.remove('hidden');
+        this.comandaEmptyState.classList.add('flex');
+        this.comandaEmptyState.style.display = 'flex';
+      }
     } else {
-      if (this.comandaEmptyState) this.comandaEmptyState.classList.add('hidden');
+      if (this.comandaEmptyState) {
+        this.comandaEmptyState.classList.add('hidden');
+        this.comandaEmptyState.classList.remove('flex');
+        this.comandaEmptyState.style.display = 'none';
+      }
 
       order.items.forEach(item => {
         const itemEl = document.createElement('div');
-        itemEl.className = 'comanda-item p-3 rounded-xl border border-slate-100 flex items-start gap-3 relative group';
+        itemEl.className = 'comanda-item p-3 rounded-xl border border-slate-200/80 bg-white shadow-xs flex items-start gap-3 relative group transition-all hover:border-slate-300';
         
         itemEl.innerHTML = `
-          <div class="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 mt-0.5">
+          <div class="w-11 h-11 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 mt-0.5 border border-slate-100">
             <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover">
           </div>
 
           <div class="flex-1 min-w-0">
             <div class="flex justify-between items-start">
-              <h4 class="text-xs font-bold text-slate-800 truncate pr-2">${item.name}</h4>
+              <h4 class="text-xs font-bold text-slate-800 truncate pr-2" title="${item.name}">${item.name}</h4>
               <span class="text-xs font-black text-slate-900">${CartController.formatMoney(item.price * item.quantity)}</span>
             </div>
 
@@ -778,23 +786,26 @@ class DeltaPOSApp {
             </div>
 
             ${item.notes ? `
-              <div class="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded mt-1.5 flex items-center gap-1">
+              <div class="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded mt-1.5 flex items-center gap-1 border border-amber-200/60">
                 <span>📝 ${item.notes}</span>
               </div>
             ` : ''}
 
             <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
-              <button class="add-note-btn text-[10px] font-semibold text-slate-500 hover:text-slate-800 hover:underline flex items-center gap-1" data-id="${item.id}">
-                ${item.notes ? 'Editar nota' : '+ Agregar nota'}
+              <button class="add-note-btn text-[10px] font-semibold text-slate-500 hover:text-slate-800 hover:underline flex items-center gap-1 cursor-pointer" data-id="${item.id}">
+                ${item.notes ? '✏️ Nota' : '+ Nota'}
               </button>
 
-              <div class="flex items-center gap-1.5 bg-slate-100 rounded-lg p-0.5">
-                <button class="qty-btn-minus w-6 h-6 flex items-center justify-center rounded-md bg-white hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-all" data-id="${item.id}">
+              <div class="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                <button class="qty-btn-minus w-6 h-6 flex items-center justify-center rounded-md bg-white hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-all cursor-pointer" data-id="${item.id}">
                   -
                 </button>
                 <span class="text-xs font-bold text-slate-800 px-1.5 min-w-[20px] text-center">${item.quantity}</span>
-                <button class="qty-btn-plus w-6 h-6 flex items-center justify-center rounded-md bg-white hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-all" data-id="${item.id}">
+                <button class="qty-btn-plus w-6 h-6 flex items-center justify-center rounded-md bg-white hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-xs transition-all cursor-pointer" data-id="${item.id}">
                   +
+                </button>
+                <button class="remove-item-btn w-6 h-6 flex items-center justify-center rounded-md bg-white hover:bg-rose-50 text-rose-500 hover:text-rose-700 font-bold text-xs shadow-xs transition-all cursor-pointer ml-0.5" title="Eliminar ítem" data-id="${item.id}">
+                  ✕
                 </button>
               </div>
             </div>
@@ -802,15 +813,22 @@ class DeltaPOSApp {
         `;
 
         // Eventos de cantidad
-        itemEl.querySelector('.qty-btn-minus').addEventListener('click', () => {
+        itemEl.querySelector('.qty-btn-minus').addEventListener('click', (e) => {
+          e.stopPropagation();
           CartController.updateQuantity(item.id, -1);
         });
-        itemEl.querySelector('.qty-btn-plus').addEventListener('click', () => {
+        itemEl.querySelector('.qty-btn-plus').addEventListener('click', (e) => {
+          e.stopPropagation();
           CartController.updateQuantity(item.id, 1);
+        });
+        itemEl.querySelector('.remove-item-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          CartController.removeItem(item.id);
         });
 
         // Evento de notas
-        itemEl.querySelector('.add-note-btn').addEventListener('click', () => {
+        itemEl.querySelector('.add-note-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
           this.openNoteModal(item.id, item.notes || '');
         });
 
@@ -822,7 +840,7 @@ class DeltaPOSApp {
     if (this.subtotalDisplay) this.subtotalDisplay.textContent = CartController.formatMoney(totals.subtotal);
     if (this.taxDisplay) this.taxDisplay.textContent = CartController.formatMoney(totals.tax);
     if (this.taxLabel) this.taxLabel.textContent = `${state.settings.taxName} (${totals.taxRatePercentage}%):`;
-    if (this.discountDisplay) this.discountDisplay.textContent = totals.discount > 0 ? `-${CartController.formatMoney(totals.discount)}` : '$0.00';
+    if (this.discountDisplay) this.discountDisplay.textContent = totals.discount > 0 ? `-${CartController.formatMoney(totals.discount)}` : CartController.formatMoney(0);
     if (this.totalDisplay) this.totalDisplay.textContent = CartController.formatMoney(totals.total);
   }
 
@@ -856,6 +874,10 @@ class DeltaPOSApp {
   }
 }
 
+// Inicializar la aplicación al cargar el DOM
+document.addEventListener('DOMContentLoaded', () => {
+  window.posApp = new DeltaPOSApp();
+});
 // Inicializar la aplicación de forma robusta con soporte para módulos diferidos
 function bootstrap() {
   if (!window.posApp) {

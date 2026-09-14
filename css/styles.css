@@ -58,7 +58,7 @@ body {
 }
 
 .flex {
-  display: flex !important;
+  display: flex;
 }
 
 /* Scrollbar styling */

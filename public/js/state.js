@@ -16,12 +16,12 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULT_SETTINGS = {
-  currencySymbol: '$',
-  taxRate: 0.16,
+  currencySymbol: '₡',
+  taxRate: 0.13,
   taxName: 'IVA',
   restaurantName: 'Gastro POS Delta',
-  address: 'Av. Principal #104, Zona Centro',
-  phone: '+1 (555) 019-2834',
+  address: 'San José, Costa Rica',
+  phone: '+506 2222-3344',
   footerMessage: '¡Gracias por su preferencia!',
   cashierName: 'Juan (Caja 01)'
 };
@@ -50,11 +50,24 @@ class StateManager {
   loadState() {
     // Cargar productos
     const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    this.products = savedProducts ? JSON.parse(savedProducts) : INITIAL_PRODUCTS;
+    let prods = savedProducts ? JSON.parse(savedProducts) : INITIAL_PRODUCTS;
+    // Si los productos guardados tienen precios en dólares (menores a 100), migrar a Colones
+    if (prods.some(p => p.price < 100)) {
+      prods = INITIAL_PRODUCTS;
+      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(prods));
+    }
+    this.products = prods;
 
     // Cargar ajustes
     const savedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-    this.settings = savedSettings ? { ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) } : DEFAULT_SETTINGS;
+    let sett = savedSettings ? { ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) } : DEFAULT_SETTINGS;
+    if (sett.currencySymbol === '$') {
+      sett.currencySymbol = '₡';
+      sett.taxRate = 0.13;
+      sett.taxName = 'IVA';
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(sett));
+    }
+    this.settings = sett;
 
     // Cargar mesas
     const savedTables = localStorage.getItem(STORAGE_KEYS.TABLES);

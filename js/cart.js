@@ -88,12 +88,12 @@ export class CartController {
   static calculateTotals(order = null) {
     const currentOrder = order || state.getCurrentOrder();
     const items = currentOrder.items || [];
-    const taxRate = state.settings.taxRate || 0.16;
+    const taxRate = state.settings.taxRate !== undefined ? state.settings.taxRate : 0.13;
 
     const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const discount = Math.min(subtotal, currentOrder.discount || 0);
     const subtotalAfterDiscount = subtotal - discount;
-    const tax = subtotalAfterDiscount * taxRate;
+    const tax = Math.round(subtotalAfterDiscount * taxRate);
     const total = subtotalAfterDiscount + tax;
 
     return {
@@ -108,8 +108,9 @@ export class CartController {
   }
 
   static formatMoney(amount) {
-    const symbol = state.settings.currencySymbol || '$';
-    return `${symbol}${Number(amount || 0).toFixed(2)}`;
+    const symbol = state.settings.currencySymbol || '₡';
+    const num = Number(amount || 0);
+    return `${symbol}${num.toLocaleString('es-CR')}`;
   }
 }
 

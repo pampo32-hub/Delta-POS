@@ -25,16 +25,16 @@ export class PaymentController {
       });
     }
 
-    // Botones de montos rápidos ($10, $20, $50, $100, Exacto)
+    // Botones de montos rápidos (Exacto, ₡2.000, ₡5.000, ₡10.000, ₡20.000)
     if (this.quickCashButtons) {
       this.quickCashButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
           const val = e.currentTarget.dataset.value;
           const totals = CartController.calculateTotals();
           if (val === 'exact') {
-            this.amountTenderedInput.value = totals.total.toFixed(2);
+            this.amountTenderedInput.value = totals.total;
           } else {
-            this.amountTenderedInput.value = parseFloat(val).toFixed(2);
+            this.amountTenderedInput.value = parseFloat(val);
           }
           this.updateChangeCalculation();
         });
@@ -103,7 +103,7 @@ export class PaymentController {
 
     // Resetear a efectivo por defecto
     this.paymentMethod = 'cash';
-    this.amountTenderedInput.value = totals.total.toFixed(2);
+    this.amountTenderedInput.value = totals.total;
     this.updateChangeCalculation();
 
     // Mostrar modal
