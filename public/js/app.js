@@ -384,9 +384,11 @@ class DeltaPOSApp {
   }
 
   setActiveNav(tab) {
+    const navButtons = [this.navPosBtn, this.navTablesBtn, this.navStockBtn, this.navCajaBtn, this.navReportsBtn];
     const navButtons = [this.navPosBtn, this.navTablesBtn, this.navStockBtn, this.navCajaBtn, this.navReportsBtn, this.navAdminBtn];
     navButtons.forEach(btn => {
       if (!btn) return;
+      btn.classList.remove('text-slate-900', 'bg-slate-100', 'active');
       btn.classList.remove('text-slate-900', 'bg-slate-100', 'active', 'bg-amber-100', 'text-amber-800');
       btn.classList.add('text-slate-400');
     });
@@ -396,6 +398,7 @@ class DeltaPOSApp {
       tables: this.navTablesBtn,
       stock: this.navStockBtn,
       caja: this.navCajaBtn,
+      reports: this.navReportsBtn
       reports: this.navReportsBtn,
       admin: this.navAdminBtn
     };

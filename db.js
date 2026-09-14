@@ -101,6 +101,7 @@ export async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS caja_movimientos (
         id VARCHAR(50) PRIMARY KEY,
+        caja_id VARCHAR(50) REFERENCES cajas(id) ON DELETE CASCADE,
         caja_id VARCHAR(50),
         tipo VARCHAR(20) NOT NULL,
         monto NUMERIC(12, 2) NOT NULL,

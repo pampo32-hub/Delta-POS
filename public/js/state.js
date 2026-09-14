@@ -1,6 +1,6 @@
 /**
  * PROYECTO DELTA POS - Gestión de Estado Global (State Management)
- * PROYECTO DELTA POS - Gestión de Estado Global (Sincronizado con API y PostgreSQL)
+ * Sincronizado con API y PostgreSQL (Gamma POS Complete Features)
  */
 
 import { INITIAL_PRODUCTS } from './products.js';
@@ -15,7 +15,6 @@ const STORAGE_KEYS = {
   TICKET_COUNTER: 'delta_pos_ticket_counter',
   CAJA_ACTIVA: 'delta_pos_caja_activa',
   CAJA_MOVIMIENTOS: 'delta_pos_caja_movimientos',
-  CAJA_HISTORIAL: 'delta_pos_caja_historial'
   CAJA_HISTORIAL: 'delta_pos_caja_historial',
   USERS: 'delta_pos_users',
   INSUMOS: 'delta_pos_insumos',
@@ -104,7 +103,6 @@ class StateManager {
     // Cargar productos
     const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     let prods = savedProducts ? JSON.parse(savedProducts) : INITIAL_PRODUCTS;
-    // Si los productos guardados tienen precios en dólares (menores a 100), migrar a Colones
     if (prods.some(p => p.price < 100)) {
       prods = INITIAL_PRODUCTS;
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(prods));
@@ -138,7 +136,6 @@ class StateManager {
     const savedCounter = localStorage.getItem(STORAGE_KEYS.TICKET_COUNTER);
     this.ticketCounter = savedCounter ? parseInt(savedCounter, 10) : 1001;
 
-    // Historial de ventas completadas (con deduplicación por ID / ticket)
     // Historial de ventas completadas (con deduplicación estricta por ticket)
     const savedHistory = localStorage.getItem(STORAGE_KEYS.SALES_HISTORY);
     if (savedHistory) {
@@ -146,7 +143,6 @@ class StateManager {
         const parsed = JSON.parse(savedHistory);
         const seen = new Set();
         this.salesHistory = (Array.isArray(parsed) ? parsed : []).filter(s => {
-          const key = s.id || `${s.ticketNumber}_${Math.floor(new Date(s.completedAt).getTime() / 15000)}`;
           const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
           if (seen.has(key)) return false;
           seen.add(key);
@@ -187,8 +183,7 @@ class StateManager {
     // Filtros de vista activa
     this.selectedCategory = 'todos';
     this.searchQuery = '';
-    this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales'
-    this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales', 'admin'
+    this.activeView = 'pos';
 
     // Asegurar que la mesa activa tenga un objeto comanda inicializado
     this.ensureOrderExists(this.activeTableId);
@@ -225,7 +220,6 @@ class StateManager {
         }
       }
 
-      // 3. Sincronizar historial de ventas (con deduplicación)
       // 3. Sincronizar historial de ventas (con deduplicación estricta por ticket)
       const salesRes = await fetch('/api/sales');
       if (salesRes.ok) {
@@ -233,7 +227,6 @@ class StateManager {
         if (Array.isArray(sales)) {
           const seen = new Set();
           this.salesHistory = sales.filter(s => {
-            const key = s.id || `${s.ticketNumber}_${Math.floor(new Date(s.completedAt).getTime() / 15000)}`;
             const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
             if (seen.has(key)) return false;
             seen.add(key);
@@ -302,7 +295,6 @@ class StateManager {
     localStorage.setItem(STORAGE_KEYS.KARDEX, JSON.stringify(this.kardex));
     localStorage.setItem(STORAGE_KEYS.ADMIN_SETTINGS, JSON.stringify(this.adminSettings));
   }
-  }
 
   ensureOrderExists(tableId) {
     if (!this.orders[tableId]) {
@@ -360,14 +352,6 @@ class StateManager {
     const order = this.getCurrentOrder();
     if (!order || !order.items || order.items.length === 0) return null;
 
-    // Verificar si ya existe una venta completada reciente para este ticket
-    const recentDuplicate = this.salesHistory.find(s => 
-      s.ticketNumber === order.ticketNumber && 
-      s.tableId === this.activeTableId &&
-      Math.abs(Date.now() - new Date(s.completedAt).getTime()) < 15000
-    );
-    if (recentDuplicate) {
-      return recentDuplicate;
     // Verificar si ya existe una venta registrada con este número de ticket
     const existingSale = this.salesHistory.find(s => s.ticketNumber === order.ticketNumber);
     if (existingSale) {
@@ -454,7 +438,6 @@ class StateManager {
     this.saveState();
     this.notify();
 
-    // Sincronizar backend si está disponible
     try {
       await fetch('/api/products', {
         method: 'POST',
@@ -481,7 +464,6 @@ class StateManager {
     this.saveState();
     this.notify();
 
-    // Sincronizar backend si está disponible
     try {
       await fetch(`/api/products/${productId}`, {
         method: 'PUT',
@@ -498,7 +480,6 @@ class StateManager {
     this.saveState();
     this.notify();
 
-    // Sincronizar backend
     try {
       await fetch(`/api/products/${productId}`, { method: 'DELETE' });
     } catch (e) {}
@@ -589,7 +570,6 @@ class StateManager {
     const seenTickets = new Set();
     const ventasTurno = (this.salesHistory || []).filter(sale => {
       if (new Date(sale.completedAt) < fechaApertura) return false;
-      const key = sale.id || `${sale.ticketNumber}_${Math.floor(new Date(sale.completedAt).getTime() / 15000)}`;
       const key = sale.ticketNumber ? `ticket_${sale.ticketNumber}` : (sale.id || JSON.stringify(sale));
       if (seenTickets.has(key)) return false;
       seenTickets.add(key);
@@ -608,7 +588,7 @@ class StateManager {
       } else if (method === 'card' || method.includes('tarjeta')) {
         ventasTarjeta += total;
       } else {
-        ventasSinpe += total; // transferencias y Sinpe Móvil
+        ventasSinpe += total;
       }
     });
 
@@ -879,4 +859,3 @@ class StateManager {
 }
 
 export const state = new StateManager();
-
