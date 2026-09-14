@@ -8,6 +8,7 @@ import { CartController } from './cart.js';
 import { PaymentController } from './payment.js';
 import { PrintController } from './print.js';
 import { CajaController } from './caja.js';
+import { AdminController } from './admin.js';
 
 class DeltaPOSApp {
   constructor() {
@@ -20,6 +21,7 @@ class DeltaPOSApp {
     PaymentController.init();
     PrintController.init();
     CajaController.init();
+    AdminController.init();
 
     // Referencias del DOM
     this.categoriesContainer = document.getElementById('categories-container');
@@ -54,6 +56,7 @@ class DeltaPOSApp {
     this.navStockBtn = document.getElementById('nav-stock-btn');
     this.navCajaBtn = document.getElementById('nav-caja-btn');
     this.navReportsBtn = document.getElementById('nav-reports-btn');
+    this.navAdminBtn = document.getElementById('nav-admin-btn');
 
     // Modales Adicionales
     this.tablesModal = document.getElementById('tables-modal');

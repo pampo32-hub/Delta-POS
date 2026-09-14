@@ -224,11 +224,15 @@ app.post('/api/sales', async (req, res) => {
 
     const saleId = id || ('SALE-' + Date.now());
 
+    // Verificar si ya existe una venta con este ID o con este ticket_numero en la misma mesa recientemente
     // Verificar si ya existe una venta con este número de ticket o ID
     const checkDuplicate = await client.query(
       `SELECT * FROM ventas 
+       WHERE id = $1 
+          OR (ticket_numero = $2 AND mesa_id = $3 AND creado_en > NOW() - INTERVAL '30 seconds') 
        WHERE id = $1 OR ticket_numero = $2 
        LIMIT 1;`,
+      [saleId, ticketNumber, tableId]
       [saleId, ticketNumber]
     );
 
@@ -289,6 +293,7 @@ app.post('/api/sales', async (req, res) => {
 // 6. OBTENER HISTORIAL DE VENTAS
 app.get('/api/sales', async (req, res) => {
   try {
+    const result = await query('SELECT * FROM ventas ORDER BY creado_en DESC LIMIT 100;');
     const result = await query(`
       SELECT DISTINCT ON (ticket_numero) * 
       FROM ventas 
@@ -474,7 +479,295 @@ app.get('/api/caja/historial', async (req, res) => {
   }
 });
 
-// 7. RUTA PRINCIPAL - Servir aplicación SPA
+// ============================================================================
+// RUTAS DEL PANEL DE ADMINISTRACIÓN (GAMMA POS STYLE)
+// ============================================================================
+
+// 12. VERIFICACIÓN DE PIN DE ADMINISTRADOR
+app.post('/api/admin/verify-pin', async (req, res) => {
+  try {
+    const { pin } = req.body;
+    if (pin === '1234') {
+      return res.json({ ok: true, rol: 'admin', nombre: 'Administrador' });
+    }
+    const userRes = await query(`SELECT * FROM usuarios WHERE pin = $1 AND activo = true LIMIT 1;`, [pin]);
+    if (userRes.rowCount > 0) {
+      const u = userRes.rows[0];
+      return res.json({ ok: true, rol: u.rol, nombre: u.nombre, usuario: u.usuario });
+    }
+    res.status(401).json({ ok: false, error: 'PIN de Administrador incorrecto' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 13. USUARIOS Y PERSONAL
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const result = await query(`SELECT id, nombre, usuario, rol, pin, activo, creado_en FROM usuarios ORDER BY creado_en ASC;`);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/users', async (req, res) => {
+  try {
+    const { nombre, usuario, password, rol, pin } = req.body;
+    const id = 'u_' + Date.now();
+    const result = await query(
+      `INSERT INTO usuarios (id, nombre, usuario, password, rol, pin, activo)
+       VALUES ($1, $2, $3, $4, $5, $6, true)
+       RETURNING id, nombre, usuario, rol, pin, activo, creado_en;`,
+      [id, nombre.trim(), usuario.trim().toLowerCase(), password || '123456', rol || 'salonero', pin || '1234']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, usuario, password, rol, pin, activo } = req.body;
+    const result = await query(
+      `UPDATE usuarios
+       SET nombre = COALESCE($1, nombre),
+           usuario = COALESCE($2, usuario),
+           password = CASE WHEN $3 IS NOT NULL AND $3 != '' THEN $3 ELSE password END,
+           rol = COALESCE($4, rol),
+           pin = COALESCE($5, pin),
+           activo = COALESCE($6, activo)
+       WHERE id = $7
+       RETURNING id, nombre, usuario, rol, pin, activo, creado_en;`,
+      [nombre, usuario, password, rol, pin, activo, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await query(`DELETE FROM usuarios WHERE id = $1;`, [id]);
+    res.json({ ok: true, id });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 14. DASHBOARD EJECUTIVO & MÉTRICAS
+app.get('/api/admin/metrics', async (req, res) => {
+  try {
+    // Ventas de hoy
+    const ventasHoyRes = await query(`
+      SELECT DISTINCT ON (ticket_numero) * 
+      FROM ventas 
+      WHERE DATE(creado_en) = CURRENT_DATE 
+      ORDER BY ticket_numero DESC;
+    `);
+    const ventasHoy = ventasHoyRes.rows;
+    const totalVentasHoy = ventasHoy.reduce((acc, v) => acc + parseFloat(v.total), 0);
+    const cuentasCobradas = ventasHoy.length;
+    const ticketPromedio = cuentasCobradas > 0 ? Math.round(totalVentasHoy / cuentasCobradas) : 0;
+
+    // Distribución por hora de hoy (8 AM a 11 PM)
+    const hourlyDistribution = Array.from({ length: 16 }, (_, i) => {
+      const hour = i + 8;
+      const count = ventasHoy.filter(v => new Date(v.creado_en).getHours() === hour).length;
+      const total = ventasHoy
+        .filter(v => new Date(v.creado_en).getHours() === hour)
+        .reduce((acc, v) => acc + parseFloat(v.total), 0);
+      return { hour: `${hour}:00`, count, total };
+    });
+
+    // Top Platillos más vendidos
+    const itemMap = {};
+    ventasHoy.forEach(v => {
+      const items = Array.isArray(v.items) ? v.items : (typeof v.items === 'string' ? JSON.parse(v.items) : []);
+      items.forEach(it => {
+        if (!itemMap[it.name]) {
+          itemMap[it.name] = { name: it.name, quantity: 0, revenue: 0, image: it.image };
+        }
+        itemMap[it.name].quantity += Number(it.quantity || 1);
+        itemMap[it.name].revenue += Number(it.price || 0) * Number(it.quantity || 1);
+      });
+    });
+    const topProducts = Object.values(itemMap).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+
+    // Rendimiento por Salonero / Mesero
+    const waiterMap = {};
+    ventasHoy.forEach(v => {
+      const cajero = v.cajero || 'Cajero';
+      if (!waiterMap[cajero]) {
+        waiterMap[cajero] = { name: cajero, salesCount: 0, totalAmount: 0 };
+      }
+      waiterMap[cajero].salesCount++;
+      waiterMap[cajero].totalAmount += parseFloat(v.total);
+    });
+    const waiterRanking = Object.values(waiterMap).sort((a, b) => b.totalAmount - a.totalAmount);
+
+    res.json({
+      totalVentasHoy,
+      cuentasCobradas,
+      ticketPromedio,
+      hourlyDistribution,
+      topProducts,
+      waiterRanking
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 15. INVENTARIO & INSUMOS
+app.get('/api/admin/insumos', async (req, res) => {
+  try {
+    const result = await query(`SELECT * FROM insumos ORDER BY nombre ASC;`);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/insumos', async (req, res) => {
+  try {
+    const { nombre, categoria, unidad, stockActual, stockMinimo, costoUnitario } = req.body;
+    const id = 'ins_' + Date.now();
+    const result = await query(
+      `INSERT INTO insumos (id, nombre, categoria, unidad, stock_actual, stock_minimo, costo_unitario)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *;`,
+      [id, nombre.trim(), categoria || 'General', unidad || 'unidades', Number(stockActual) || 0, Number(stockMinimo) || 5, Number(costoUnitario) || 0]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 16. KARDEX & TRAZABILIDAD
+app.get('/api/admin/kardex', async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT k.*, i.nombre as insumo_nombre, i.unidad 
+      FROM kardex k 
+      LEFT JOIN insumos i ON k.insumo_id = i.id 
+      ORDER BY k.fecha_hora DESC 
+      LIMIT 100;
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/kardex/movement', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { insumoId, tipo, cantidad, motivo, usuario } = req.body;
+    const insumoRes = await client.query(`SELECT * FROM insumos WHERE id = $1 FOR UPDATE;`, [insumoId]);
+    if (insumoRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Insumo no encontrado' });
+    }
+    const insumo = insumoRes.rows[0];
+    const stockAnterior = parseFloat(insumo.stock_actual);
+    const cantNum = Math.abs(parseFloat(cantidad)) || 0;
+    const stockNuevo = tipo === 'entrada' ? stockAnterior + cantNum : Math.max(0, stockAnterior - cantNum);
+
+    await client.query(`UPDATE insumos SET stock_actual = $1 WHERE id = $2;`, [stockNuevo, insumoId]);
+    const movId = 'KARDEX-' + Date.now();
+    const kardexRes = await client.query(
+      `INSERT INTO kardex (id, insumo_id, tipo, cantidad, stock_anterior, stock_nuevo, motivo, usuario)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;`,
+      [movId, insumoId, tipo, cantNum, stockAnterior, stockNuevo, motivo || 'Ajuste manual', usuario || 'Admin']
+    );
+    await client.query('COMMIT');
+    res.status(201).json(kardexRes.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+// 17. CONFIGURACIÓN GENERAL & FEATURE FLAGS
+app.get('/api/admin/settings', async (req, res) => {
+  try {
+    const result = await query(`SELECT * FROM configuracion;`);
+    const settings = {};
+    result.rows.forEach(r => {
+      settings[r.clave] = r.valor;
+    });
+    res.json(settings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/settings', async (req, res) => {
+  try {
+    const { clave, valor } = req.body;
+    await query(
+      `INSERT INTO configuracion (clave, valor)
+       VALUES ($1, $2)
+       ON CONFLICT (clave) DO UPDATE SET valor = $2;`,
+      [clave, JSON.stringify(valor)]
+    );
+    res.json({ ok: true, clave, valor });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 18. PURGAR VENTAS DE PRUEBA (SOLO DEVELOPER / ADMIN)
+app.post('/api/admin/purge-sales', async (req, res) => {
+  try {
+    await query(`DELETE FROM ventas;`);
+    await query(`DELETE FROM caja_movimientos;`);
+    await query(`UPDATE cajas SET estado = 'cerrada' WHERE estado = 'abierta';`);
+    await query(`UPDATE mesas SET comanda_activa = '{}'::jsonb, estado = 'free';`);
+    res.json({ ok: true, message: 'Ventas de prueba y comandas purgadas exitosamente.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 19. RESPALDO Y EXPORTACIÓN DE BASE DE DATOS (JSON BACKUP)
+app.get('/api/admin/backup', async (req, res) => {
+  try {
+    const productos = (await query('SELECT * FROM productos;')).rows;
+    const mesas = (await query('SELECT * FROM mesas;')).rows;
+    const ventas = (await query('SELECT * FROM ventas;')).rows;
+    const usuarios = (await query('SELECT * FROM usuarios;')).rows;
+    const insumos = (await query('SELECT * FROM insumos;')).rows;
+    const cajas = (await query('SELECT * FROM cajas;')).rows;
+
+    res.json({
+      exportadoEn: new Date().toISOString(),
+      sistema: 'Delta POS v2.0',
+      datos: {
+        productos,
+        mesas,
+        ventas,
+        usuarios,
+        insumos,
+        cajas
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 20. RUTA PRINCIPAL - Servir aplicación SPA
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

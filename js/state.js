@@ -15,8 +15,57 @@ const STORAGE_KEYS = {
   TICKET_COUNTER: 'delta_pos_ticket_counter',
   CAJA_ACTIVA: 'delta_pos_caja_activa',
   CAJA_MOVIMIENTOS: 'delta_pos_caja_movimientos',
-  CAJA_HISTORIAL: 'delta_pos_caja_historial'
+  CAJA_HISTORIAL: 'delta_pos_caja_historial',
+  USERS: 'delta_pos_users',
+  INSUMOS: 'delta_pos_insumos',
+  KARDEX: 'delta_pos_kardex',
+  ADMIN_SETTINGS: 'delta_pos_admin_settings'
 };
+
+const DEFAULT_ADMIN_SETTINGS = {
+  happyHour: {
+    activo: false,
+    titulo: 'HAPPY HOUR 2x1',
+    modo: '2x1', // '2x1', 'descuento'
+    descuentoPorcentaje: 50,
+    horaInicio: '16:00',
+    horaFin: '19:00',
+    dias: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']
+  },
+  flags: {
+    servicioMesa10: false,
+    bimonedaUsd: false,
+    tipoCambioUsd: 520,
+    cierreCiegoX: true,
+    sonidoCampana: true,
+    autoImprimirTicket: true,
+    solicitarPinCancelaciones: true
+  },
+  impresoras: {
+    anchoPapel: '80mm', // '80mm', '58mm'
+    autoCorte: true,
+    copias: 1,
+    encabezado: 'GASTRO POS DELTA\nSan José, Costa Rica\nTel: +506 2222-3344\nCédula Jurídica: 3-101-987654',
+    piePagina: '¡Gracias por su visita!\nConserve este comprobante para cualquier reclamo.'
+  }
+};
+
+const DEFAULT_USERS = [
+  { id: 'u_admin', nombre: 'Administrador Principal', usuario: 'admin', rol: 'admin', pin: '1234', activo: true },
+  { id: 'u_cajero', nombre: 'Roberto Caja', usuario: 'cajero', rol: 'cajero', pin: '5555', activo: true },
+  { id: 'u_carlos', nombre: 'Carlos Solano', usuario: 'carlos', rol: 'salonero', pin: '1111', activo: true },
+  { id: 'u_sofia', nombre: 'Sofía Morales', usuario: 'sofia', rol: 'salonera', pin: '2222', activo: true }
+];
+
+const DEFAULT_INSUMOS = [
+  { id: 'ins_1', nombre: 'Carne Molida Black Angus', categoria: 'Carnes', unidad: 'kg', stock_actual: 18.5, stock_minimo: 5.0, costo_unitario: 4200 },
+  { id: 'ins_2', nombre: 'Pan Brioche Artesanal', categoria: 'Panadería', unidad: 'unidades', stock_actual: 60, stock_minimo: 15, costo_unitario: 450 },
+  { id: 'ins_3', nombre: 'Queso Cheddar Madurado', categoria: 'Lácteos', unidad: 'kg', stock_actual: 8.2, stock_minimo: 2.0, costo_unitario: 5800 },
+  { id: 'ins_4', nombre: 'Café en Grano Premium Tarrazú', categoria: 'Cafetería', unidad: 'kg', stock_actual: 12.0, stock_minimo: 3.0, costo_unitario: 6500 },
+  { id: 'ins_5', nombre: 'Leche Entera / Descremada', categoria: 'Lácteos', unidad: 'litros', stock_actual: 24, stock_minimo: 6, costo_unitario: 950 },
+  { id: 'ins_6', nombre: 'Cerveza Barril Artesanal', categoria: 'Licores', unidad: 'litros', stock_actual: 45, stock_minimo: 10, costo_unitario: 2200 },
+  { id: 'ins_7', nombre: 'Salsa BBQ Ahumada Especial', categoria: 'Salsas', unidad: 'litros', stock_actual: 6.5, stock_minimo: 2.0, costo_unitario: 3100 }
+];
 
 const DEFAULT_SETTINGS = {
   currencySymbol: '₡',
@@ -88,6 +137,7 @@ class StateManager {
     const savedCounter = localStorage.getItem(STORAGE_KEYS.TICKET_COUNTER);
     this.ticketCounter = savedCounter ? parseInt(savedCounter, 10) : 1001;
 
+    // Historial de ventas completadas (con deduplicación por ID / ticket)
     // Historial de ventas completadas (con deduplicación estricta por ticket)
     const savedHistory = localStorage.getItem(STORAGE_KEYS.SALES_HISTORY);
     if (savedHistory) {
@@ -95,6 +145,7 @@ class StateManager {
         const parsed = JSON.parse(savedHistory);
         const seen = new Set();
         this.salesHistory = (Array.isArray(parsed) ? parsed : []).filter(s => {
+          const key = s.id || `${s.ticketNumber}_${Math.floor(new Date(s.completedAt).getTime() / 15000)}`;
           const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
           if (seen.has(key)) return false;
           seen.add(key);
@@ -117,10 +168,25 @@ class StateManager {
     const savedCajasHist = localStorage.getItem(STORAGE_KEYS.CAJA_HISTORIAL);
     this.cajaHistorial = savedCajasHist ? JSON.parse(savedCajasHist) : [];
 
+    // Cargar Personal / Usuarios
+    const savedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
+    this.users = savedUsers ? JSON.parse(savedUsers) : DEFAULT_USERS;
+
+    // Cargar Insumos y Kardex
+    const savedInsumos = localStorage.getItem(STORAGE_KEYS.INSUMOS);
+    this.insumos = savedInsumos ? JSON.parse(savedInsumos) : DEFAULT_INSUMOS;
+
+    const savedKardex = localStorage.getItem(STORAGE_KEYS.KARDEX);
+    this.kardex = savedKardex ? JSON.parse(savedKardex) : [];
+
+    // Cargar Configuración de Administrador & Feature Flags
+    const savedAdminSettings = localStorage.getItem(STORAGE_KEYS.ADMIN_SETTINGS);
+    this.adminSettings = savedAdminSettings ? { ...DEFAULT_ADMIN_SETTINGS, ...JSON.parse(savedAdminSettings) } : DEFAULT_ADMIN_SETTINGS;
+
     // Filtros de vista activa
     this.selectedCategory = 'todos';
     this.searchQuery = '';
-    this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales'
+    this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales', 'admin'
 
     // Asegurar que la mesa activa tenga un objeto comanda inicializado
     this.ensureOrderExists(this.activeTableId);
@@ -182,6 +248,33 @@ class StateManager {
         }
       }
 
+      // 5. Sincronizar Usuarios / Personal
+      const usersRes = await fetch('/api/admin/users');
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        if (Array.isArray(usersData) && usersData.length > 0) {
+          this.users = usersData;
+        }
+      }
+
+      // 6. Sincronizar Insumos
+      const insumosRes = await fetch('/api/admin/insumos');
+      if (insumosRes.ok) {
+        const insumosData = await insumosRes.json();
+        if (Array.isArray(insumosData) && insumosData.length > 0) {
+          this.insumos = insumosData;
+        }
+      }
+
+      // 7. Sincronizar Configuración Admin
+      const settingsRes = await fetch('/api/admin/settings');
+      if (settingsRes.ok) {
+        const settData = await settingsRes.json();
+        if (settData && typeof settData === 'object') {
+          this.adminSettings = { ...this.adminSettings, ...settData };
+        }
+      }
+
       this.saveState();
       this.notify();
     } catch (e) {
@@ -200,6 +293,11 @@ class StateManager {
     localStorage.setItem(STORAGE_KEYS.CAJA_ACTIVA, JSON.stringify(this.cajaActiva));
     localStorage.setItem(STORAGE_KEYS.CAJA_MOVIMIENTOS, JSON.stringify(this.cajaMovimientos));
     localStorage.setItem(STORAGE_KEYS.CAJA_HISTORIAL, JSON.stringify(this.cajaHistorial));
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(this.users));
+    localStorage.setItem(STORAGE_KEYS.INSUMOS, JSON.stringify(this.insumos));
+    localStorage.setItem(STORAGE_KEYS.KARDEX, JSON.stringify(this.kardex));
+    localStorage.setItem(STORAGE_KEYS.ADMIN_SETTINGS, JSON.stringify(this.adminSettings));
+  }
   }
 
   ensureOrderExists(tableId) {
@@ -258,6 +356,14 @@ class StateManager {
     const order = this.getCurrentOrder();
     if (!order || !order.items || order.items.length === 0) return null;
 
+    // Verificar si ya existe una venta completada reciente para este ticket
+    const recentDuplicate = this.salesHistory.find(s => 
+      s.ticketNumber === order.ticketNumber && 
+      s.tableId === this.activeTableId &&
+      Math.abs(Date.now() - new Date(s.completedAt).getTime()) < 15000
+    );
+    if (recentDuplicate) {
+      return recentDuplicate;
     // Verificar si ya existe una venta registrada con este número de ticket
     const existingSale = this.salesHistory.find(s => s.ticketNumber === order.ticketNumber);
     if (existingSale) {
@@ -479,6 +585,7 @@ class StateManager {
     const seenTickets = new Set();
     const ventasTurno = (this.salesHistory || []).filter(sale => {
       if (new Date(sale.completedAt) < fechaApertura) return false;
+      const key = sale.id || `${sale.ticketNumber}_${Math.floor(new Date(sale.completedAt).getTime() / 15000)}`;
       const key = sale.ticketNumber ? `ticket_${sale.ticketNumber}` : (sale.id || JSON.stringify(sale));
       if (seenTickets.has(key)) return false;
       seenTickets.add(key);
@@ -583,6 +690,176 @@ class StateManager {
     } catch (e) {}
 
     return cierre;
+  }
+
+  // ==========================================================================
+  // OPERACIONES DE ADMINISTRACIÓN (GAMMA POS STYLE)
+  // ==========================================================================
+
+  async verifyAdminPin(pin) {
+    if (pin === '1234') return { ok: true, rol: 'admin', nombre: 'Administrador' };
+    const u = this.users.find(u => u.pin === pin && u.activo);
+    if (u) return { ok: true, rol: u.rol, nombre: u.nombre, usuario: u.usuario };
+
+    try {
+      const res = await fetch('/api/admin/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {}
+
+    return { ok: false, error: 'PIN incorrecto' };
+  }
+
+  async addUser(userData) {
+    const newUser = {
+      id: 'u_' + Date.now(),
+      nombre: userData.nombre.trim(),
+      usuario: userData.usuario.trim().toLowerCase(),
+      rol: userData.rol || 'salonero',
+      pin: userData.pin || '1234',
+      activo: true,
+      creado_en: new Date().toISOString()
+    };
+    this.users.push(newUser);
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+    } catch (e) {}
+
+    return newUser;
+  }
+
+  async updateUser(id, userData) {
+    const idx = this.users.findIndex(u => u.id === id);
+    if (idx !== -1) {
+      this.users[idx] = { ...this.users[idx], ...userData };
+      this.saveState();
+      this.notify();
+    }
+
+    try {
+      await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+    } catch (e) {}
+
+    return this.users[idx];
+  }
+
+  async deleteUser(id) {
+    this.users = this.users.filter(u => u.id !== id);
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+    } catch (e) {}
+  }
+
+  async addInsumo(insumoData) {
+    const newInsumo = {
+      id: 'ins_' + Date.now(),
+      nombre: insumoData.nombre.trim(),
+      categoria: insumoData.categoria || 'General',
+      unidad: insumoData.unidad || 'unidades',
+      stock_actual: Number(insumoData.stockActual) || 0,
+      stock_minimo: Number(insumoData.stockMinimo) || 5,
+      costo_unitario: Number(insumoData.costoUnitario) || 0
+    };
+    this.insumos.push(newInsumo);
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch('/api/admin/insumos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(insumoData)
+      });
+    } catch (e) {}
+
+    return newInsumo;
+  }
+
+  async addKardexMovement(insumoId, tipo, cantidad, motivo, usuario = 'Admin') {
+    const insumo = this.insumos.find(i => i.id === insumoId);
+    if (!insumo) return null;
+
+    const cantNum = Math.abs(parseFloat(cantidad)) || 0;
+    const stockAnterior = parseFloat(insumo.stock_actual);
+    const stockNuevo = tipo === 'entrada' ? stockAnterior + cantNum : Math.max(0, stockAnterior - cantNum);
+
+    insumo.stock_actual = stockNuevo;
+
+    const mov = {
+      id: 'KARDEX-' + Date.now(),
+      insumo_id: insumoId,
+      insumo_nombre: insumo.nombre,
+      unidad: insumo.unidad,
+      tipo: tipo,
+      cantidad: cantNum,
+      stock_anterior: stockAnterior,
+      stock_nuevo: stockNuevo,
+      motivo: motivo || 'Ajuste manual',
+      usuario: usuario,
+      fecha_hora: new Date().toISOString()
+    };
+
+    this.kardex.unshift(mov);
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch('/api/admin/kardex/movement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ insumoId, tipo, cantidad: cantNum, motivo, usuario })
+      });
+    } catch (e) {}
+
+    return mov;
+  }
+
+  async saveAdminSettings(clave, valor) {
+    this.adminSettings[clave] = valor;
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clave, valor })
+      });
+    } catch (e) {}
+  }
+
+  async purgeSalesData() {
+    this.salesHistory = [];
+    this.cajaActiva = null;
+    this.cajaMovimientos = [];
+    this.cajaHistorial = [];
+    this.orders = {};
+    this.tables.forEach(t => t.status = 'free');
+    this.ensureOrderExists(this.activeTableId);
+
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch('/api/admin/purge-sales', { method: 'POST' });
+    } catch (e) {}
   }
 
   subscribe(listener) {

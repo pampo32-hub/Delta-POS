@@ -110,11 +110,65 @@ export async function initDatabase() {
       );
     `);
 
-    // 6. Tabla de Ajustes / Configuración
+    // 6. Tabla de Ajustes / Configuración General
     await pool.query(`
       CREATE TABLE IF NOT EXISTS configuracion (
         clave VARCHAR(50) PRIMARY KEY,
         valor JSONB NOT NULL
+      );
+    `);
+
+    // 7. Tabla de Personal y Usuarios del Sistema (Admin, Cajero, Salonero)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id VARCHAR(50) PRIMARY KEY,
+        nombre VARCHAR(120) NOT NULL,
+        usuario VARCHAR(60) UNIQUE NOT NULL,
+        password VARCHAR(100) NOT NULL,
+        rol VARCHAR(30) NOT NULL DEFAULT 'salonero',
+        pin VARCHAR(10) NOT NULL DEFAULT '1234',
+        activo BOOLEAN DEFAULT true,
+        creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 8. Tabla de Insumos y Materia Prima (Bodega / Kardex)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS insumos (
+        id VARCHAR(50) PRIMARY KEY,
+        nombre VARCHAR(120) NOT NULL,
+        categoria VARCHAR(50) NOT NULL DEFAULT 'general',
+        unidad VARCHAR(30) NOT NULL DEFAULT 'unidades',
+        stock_actual NUMERIC(12, 2) NOT NULL DEFAULT 0,
+        stock_minimo NUMERIC(12, 2) NOT NULL DEFAULT 5,
+        costo_unitario NUMERIC(10, 2) NOT NULL DEFAULT 0,
+        creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 9. Tabla de Movimientos de Kardex (Trazabilidad de Inventario)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS kardex (
+        id VARCHAR(50) PRIMARY KEY,
+        insumo_id VARCHAR(50) REFERENCES insumos(id) ON DELETE CASCADE,
+        tipo VARCHAR(30) NOT NULL,
+        cantidad NUMERIC(12, 2) NOT NULL,
+        stock_anterior NUMERIC(12, 2) NOT NULL,
+        stock_nuevo NUMERIC(12, 2) NOT NULL,
+        motivo TEXT NOT NULL,
+        usuario VARCHAR(100),
+        fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 10. Tabla de Recetas y Escandallos (Fichas Técnicas)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS recetas (
+        id VARCHAR(50) PRIMARY KEY,
+        producto_id VARCHAR(50) REFERENCES productos(id) ON DELETE CASCADE,
+        ingredientes JSONB NOT NULL,
+        costo_estimado NUMERIC(10, 2) DEFAULT 0,
+        actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -123,10 +177,7 @@ export async function initDatabase() {
       DELETE FROM ventas v1
       USING ventas v2
       WHERE v1.ctid < v2.ctid
-        AND v1.ticket_numero = v2.ticket_numero
-        AND v1.mesa_id = v2.mesa_id
-        AND v1.total = v2.total
-        AND ABS(EXTRACT(EPOCH FROM (v1.creado_en - v2.creado_en))) < 60;
+        AND v1.ticket_numero = v2.ticket_numero;
     `).catch(() => {});
 
     console.log('✅ Esquema de base de datos PostgreSQL verificado y listo.');
@@ -197,6 +248,49 @@ async function seedInitialData() {
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (id) DO NOTHING;`,
           t
+        );
+      }
+    }
+
+    // Poblar Usuarios Iniciales
+    const userRes = await pool.query('SELECT COUNT(*) FROM usuarios;');
+    if (parseInt(userRes.rows[0].count, 10) === 0) {
+      console.log('🌱 Creando usuarios y personal inicial...');
+      const defaultUsers = [
+        ['u_admin', 'Administrador Principal', 'admin', 'admin123', 'admin', '1234', true],
+        ['u_cajero', 'Roberto Caja', 'cajero', 'caja123', 'cajero', '5555', true],
+        ['u_carlos', 'Carlos Solano', 'carlos', 'mesero123', 'salonero', '1111', true],
+        ['u_sofia', 'Sofía Morales', 'sofia', 'mesero123', 'salonera', '2222', true]
+      ];
+      for (const u of defaultUsers) {
+        await pool.query(
+          `INSERT INTO usuarios (id, nombre, usuario, password, rol, pin, activo)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO NOTHING;`,
+          u
+        );
+      }
+    }
+
+    // Poblar Insumos Iniciales
+    const insumoRes = await pool.query('SELECT COUNT(*) FROM insumos;');
+    if (parseInt(insumoRes.rows[0].count, 10) === 0) {
+      console.log('🌱 Creando insumos y bodega inicial...');
+      const defaultInsumos = [
+        ['ins_1', 'Carne Molida Black Angus', 'Carnes', 'kg', 18.5, 5.0, 4200],
+        ['ins_2', 'Pan Brioche Artesanal', 'Panadería', 'unidades', 60, 15, 450],
+        ['ins_3', 'Queso Cheddar Madurado', 'Lácteos', 'kg', 8.2, 2.0, 5800],
+        ['ins_4', 'Café en Grano Premium Tarrazú', 'Cafetería', 'kg', 12.0, 3.0, 6500],
+        ['ins_5', 'Leche Entera / Descremada', 'Lácteos', 'litros', 24, 6, 950],
+        ['ins_6', 'Cerveza Barril Artesanal', 'Licores', 'litros', 45, 10, 2200],
+        ['ins_7', 'Salsa BBQ Ahumada Especial', 'Salsas', 'litros', 6.5, 2.0, 3100]
+      ];
+      for (const ins of defaultInsumos) {
+        await pool.query(
+          `INSERT INTO insumos (id, nombre, categoria, unidad, stock_actual, stock_minimo, costo_unitario)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO NOTHING;`,
+          ins
         );
       }
     }
