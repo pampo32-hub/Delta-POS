@@ -7,6 +7,9 @@ import { CartController } from './cart.js';
 
 export class CajaController {
   static init() {
+    if (this.initialized) return;
+    this.initialized = true;
+
     // Referencias del Modal Principal de Caja
     this.cajaModal = document.getElementById('caja-modal');
     this.cajaStatusBadge = document.getElementById('caja-status-badge');
@@ -541,3 +544,4 @@ export class CajaController {
     }
   }
 }
+

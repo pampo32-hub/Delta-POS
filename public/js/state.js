@@ -88,9 +88,24 @@ class StateManager {
     const savedCounter = localStorage.getItem(STORAGE_KEYS.TICKET_COUNTER);
     this.ticketCounter = savedCounter ? parseInt(savedCounter, 10) : 1001;
 
-    // Historial de ventas completadas
+    // Historial de ventas completadas (con deduplicación por ID / ticket)
     const savedHistory = localStorage.getItem(STORAGE_KEYS.SALES_HISTORY);
-    this.salesHistory = savedHistory ? JSON.parse(savedHistory) : [];
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        const seen = new Set();
+        this.salesHistory = (Array.isArray(parsed) ? parsed : []).filter(s => {
+          const key = s.id || `${s.ticketNumber}_${Math.floor(new Date(s.completedAt).getTime() / 15000)}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      } catch (e) {
+        this.salesHistory = [];
+      }
+    } else {
+      this.salesHistory = [];
+    }
 
     // Cargar Caja Activa y Movimientos (Gamma POS Style)
     const savedCaja = localStorage.getItem(STORAGE_KEYS.CAJA_ACTIVA);
@@ -142,12 +157,18 @@ class StateManager {
         }
       }
 
-      // 3. Sincronizar historial de ventas
+      // 3. Sincronizar historial de ventas (con deduplicación)
       const salesRes = await fetch('/api/sales');
       if (salesRes.ok) {
         const sales = await salesRes.json();
         if (Array.isArray(sales)) {
-          this.salesHistory = sales;
+          const seen = new Set();
+          this.salesHistory = sales.filter(s => {
+            const key = s.id || `${s.ticketNumber}_${Math.floor(new Date(s.completedAt).getTime() / 15000)}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
         }
       }
 
@@ -237,9 +258,20 @@ class StateManager {
     const order = this.getCurrentOrder();
     if (!order || !order.items || order.items.length === 0) return null;
 
+    // Verificar si ya existe una venta completada reciente para este ticket
+    const recentDuplicate = this.salesHistory.find(s => 
+      s.ticketNumber === order.ticketNumber && 
+      s.tableId === this.activeTableId &&
+      Math.abs(Date.now() - new Date(s.completedAt).getTime()) < 15000
+    );
+    if (recentDuplicate) {
+      return recentDuplicate;
+    }
+
+    const saleId = 'SALE-' + Date.now();
     const completedSale = {
       ...order,
-      id: 'SALE-' + Date.now(),
+      id: saleId,
       tableId: this.activeTableId,
       tableName: (this.tables.find(t => t.id === this.activeTableId) || {}).name || this.activeTableId,
       completedAt: new Date().toISOString(),
@@ -247,7 +279,6 @@ class StateManager {
       payment: paymentData
     };
 
-    // Reducir stock
     // Reducir stock local
     order.items.forEach(item => {
       const prod = this.products.find(p => p.id === item.productId);
@@ -258,12 +289,24 @@ class StateManager {
 
     this.salesHistory.unshift(completedSale);
 
+    // Limpiar comanda de la mesa activa INMEDIATAMENTE para evitar cobros dobles
+    delete this.orders[this.activeTableId];
+    this.ensureOrderExists(this.activeTableId);
+
+    // Marcar mesa como libre
+    const table = this.tables.find(t => t.id === this.activeTableId);
+    if (table) table.status = 'free';
+
+    this.saveState();
+    this.notify();
+
     // Enviar a la base de datos PostgreSQL
     try {
       await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: saleId,
           ticketNumber: order.ticketNumber,
           tableId: this.activeTableId,
           tableName: completedSale.tableName,
@@ -282,17 +325,6 @@ class StateManager {
     } catch (e) {
       console.log('Venta guardada localmente');
     }
-
-    // Limpiar comanda de la mesa activa
-    delete this.orders[this.activeTableId];
-    this.ensureOrderExists(this.activeTableId);
-
-    // Marcar mesa como libre
-    const table = this.tables.find(t => t.id === this.activeTableId);
-    if (table) table.status = 'free';
-
-    this.saveState();
-    this.notify();
 
     return completedSale;
   }
@@ -447,9 +479,14 @@ class StateManager {
 
     const fechaApertura = new Date(this.cajaActiva.fechaApertura);
 
-    // Filtrar ventas realizadas durante el turno activo
+    // Filtrar ventas realizadas durante el turno activo (deduplicadas)
+    const seenTickets = new Set();
     const ventasTurno = (this.salesHistory || []).filter(sale => {
-      return new Date(sale.completedAt) >= fechaApertura;
+      if (new Date(sale.completedAt) < fechaApertura) return false;
+      const key = sale.id || `${sale.ticketNumber}_${Math.floor(new Date(sale.completedAt).getTime() / 15000)}`;
+      if (seenTickets.has(key)) return false;
+      seenTickets.add(key);
+      return true;
     });
 
     let ventasEfectivo = 0;

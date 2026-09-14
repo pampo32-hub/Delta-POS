@@ -8,11 +8,15 @@ import { PrintController } from './print.js';
 
 export class PaymentController {
   static init() {
+    if (this.initialized) return;
+    this.initialized = true;
+
     this.modalEl = document.getElementById('payment-modal');
     this.amountTenderedInput = document.getElementById('amount-tendered');
     this.changeDisplayEl = document.getElementById('change-display');
     this.quickCashButtons = document.querySelectorAll('.quick-cash-btn');
     this.paymentMethod = 'cash'; // 'cash', 'card', 'transfer'
+    this.isProcessing = false;
 
     this.bindEvents();
   }
@@ -135,7 +139,9 @@ export class PaymentController {
     }
   }
 
-  static processPayment() {
+  static async processPayment() {
+    if (this.isProcessing) return;
+
     const totals = CartController.calculateTotals();
     const tendered = parseFloat(this.amountTenderedInput.value) || 0;
 
@@ -145,21 +151,39 @@ export class PaymentController {
       return;
     }
 
-    const change = this.paymentMethod === 'cash' ? Math.max(0, tendered - totals.total) : 0;
+    const confirmBtn = document.getElementById('confirm-payment-btn');
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.classList.add('opacity-50', 'pointer-events-none');
+    }
+    this.isProcessing = true;
 
-    const paymentData = {
-      method: this.paymentMethod,
-      amountTendered: this.paymentMethod === 'cash' ? tendered : totals.total,
-      change: change,
-      totals: totals
-    };
+    try {
+      const change = this.paymentMethod === 'cash' ? Math.max(0, tendered - totals.total) : 0;
 
-    const completedSale = state.completeCurrentSale(paymentData);
-    this.closeModal();
+      const paymentData = {
+        method: this.paymentMethod,
+        amountTendered: this.paymentMethod === 'cash' ? tendered : totals.total,
+        change: change,
+        totals: totals
+      };
 
-    if (completedSale) {
-      // Mostrar ticket de éxito
-      PrintController.showReceiptModal(completedSale);
+      const completedSale = await state.completeCurrentSale(paymentData);
+      this.closeModal();
+
+      if (completedSale) {
+        // Mostrar ticket de éxito
+        PrintController.showReceiptModal(completedSale);
+      }
+    } catch (err) {
+      console.error('Error al procesar pago:', err);
+      alert('Ocurrió un error al procesar el pago. Por favor intente de nuevo.');
+    } finally {
+      this.isProcessing = false;
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.classList.remove('opacity-50', 'pointer-events-none');
+      }
     }
   }
 }

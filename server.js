@@ -206,6 +206,7 @@ app.post('/api/sales', async (req, res) => {
     await client.query('BEGIN');
 
     const {
+      id,
       ticketNumber,
       tableId,
       tableName,
@@ -221,7 +222,21 @@ app.post('/api/sales', async (req, res) => {
       items
     } = req.body;
 
-    const saleId = 'SALE-' + Date.now();
+    const saleId = id || ('SALE-' + Date.now());
+
+    // Verificar si ya existe una venta con este ID o con este ticket_numero en la misma mesa recientemente
+    const checkDuplicate = await client.query(
+      `SELECT * FROM ventas 
+       WHERE id = $1 
+          OR (ticket_numero = $2 AND mesa_id = $3 AND creado_en > NOW() - INTERVAL '30 seconds') 
+       LIMIT 1;`,
+      [saleId, ticketNumber, tableId]
+    );
+
+    if (checkDuplicate.rowCount > 0) {
+      await client.query('ROLLBACK');
+      return res.status(200).json(checkDuplicate.rows[0]);
+    }
 
     // Insertar venta
     const saleResult = await client.query(

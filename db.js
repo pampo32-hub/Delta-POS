@@ -118,6 +118,17 @@ export async function initDatabase() {
       );
     `);
 
+    // Limpiar posibles registros duplicados existentes en ventas
+    await pool.query(`
+      DELETE FROM ventas v1
+      USING ventas v2
+      WHERE v1.ctid < v2.ctid
+        AND v1.ticket_numero = v2.ticket_numero
+        AND v1.mesa_id = v2.mesa_id
+        AND v1.total = v2.total
+        AND ABS(EXTRACT(EPOCH FROM (v1.creado_en - v2.creado_en))) < 60;
+    `).catch(() => {});
+
     console.log('✅ Esquema de base de datos PostgreSQL verificado y listo.');
     await seedInitialData();
 

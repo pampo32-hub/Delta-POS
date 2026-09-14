@@ -1048,11 +1048,7 @@ class DeltaPOSApp {
   }
 }
 
-// Inicializar la aplicación al cargar el DOM
-document.addEventListener('DOMContentLoaded', () => {
-  window.posApp = new DeltaPOSApp();
-});
-// Inicializar la aplicación de forma robusta con soporte para módulos diferidos
+// Inicializar la aplicación de forma robusta como Singleton
 function bootstrap() {
   if (!window.posApp) {
     window.posApp = new DeltaPOSApp();
@@ -1060,7 +1056,7 @@ function bootstrap() {
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', bootstrap);
+  document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
 } else {
   bootstrap();
 }

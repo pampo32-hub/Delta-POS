@@ -7,6 +7,9 @@ import { CartController } from './cart.js';
 
 export class PrintController {
   static init() {
+    if (this.initialized) return;
+    this.initialized = true;
+
     this.receiptModalEl = document.getElementById('receipt-modal');
     this.receiptContentEl = document.getElementById('receipt-print-content');
 
