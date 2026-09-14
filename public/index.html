@@ -107,11 +107,19 @@
           <span>Stock</span>
         </button>
 
+        <button id="nav-caja-btn" class="nav-btn w-12 h-12 rounded-xl flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-slate-700 hover:bg-slate-50 font-medium text-[10px] transition-all cursor-pointer relative" title="Caja y Turnos">
+          <span id="caja-nav-status" class="w-2 h-2 rounded-full bg-slate-300 absolute top-2 right-2"></span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Caja</span>
+        </button>
+
         <button id="nav-reports-btn" class="nav-btn w-12 h-12 rounded-xl flex flex-col items-center justify-center gap-1 text-slate-400 hover:text-slate-700 hover:bg-slate-50 font-medium text-[10px] transition-all cursor-pointer" title="Corte de Caja y Reportes">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
           </svg>
-          <span>Corte</span>
+          <span>Reportes</span>
         </button>
       </nav>
     </div>
@@ -346,26 +354,33 @@
 
   <!-- MODAL: STOCK / INVENTARIO -->
   <div id="stock-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 animate-pop flex flex-col max-h-[90vh]">
+    <div class="bg-white rounded-3xl max-w-5xl w-full p-6 shadow-2xl border border-slate-100 animate-pop flex flex-col max-h-[90vh]">
       <div class="flex justify-between items-center pb-4 border-b border-slate-100 flex-shrink-0">
         <div>
           <h3 class="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-            📦 Inventario y Control de Stock
+            📦 Inventario y Catálogo de Productos
           </h3>
-          <p class="text-xs text-slate-500">Consulta y ajusta existencias de productos en tiempo real</p>
+          <p class="text-xs text-slate-500">Crea nuevos productos, modifica precios en colones, fotos, nombres y existencias</p>
         </div>
-        <button id="close-stock-modal-btn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer">
-          ✕
-        </button>
+        <div class="flex items-center gap-3">
+          <button id="btn-nuevo-producto" class="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+            <span>+</span> Nuevo Producto
+          </button>
+          <button id="close-stock-modal-btn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer">
+            ✕
+          </button>
+        </div>
       </div>
 
-      <div class="my-4 flex-shrink-0">
-        <input 
-          type="text" 
-          id="stock-search-input" 
-          placeholder="Filtrar por producto o código..." 
-          class="w-full px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-medium outline-none focus:bg-white focus:border-slate-800"
-        >
+      <div class="my-4 flex-shrink-0 flex items-center gap-3">
+        <div class="flex-1 relative">
+          <input 
+            type="text" 
+            id="stock-search-input" 
+            placeholder="Filtrar por nombre, código SKU o categoría..." 
+            class="w-full px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-medium outline-none focus:bg-white focus:border-slate-800"
+          >
+        </div>
       </div>
 
       <div class="flex-1 overflow-y-auto border border-slate-200 rounded-2xl">
@@ -375,9 +390,10 @@
               <th class="p-3">Producto</th>
               <th class="p-3">SKU</th>
               <th class="p-3">Categoría</th>
-              <th class="p-3">Precio</th>
-              <th class="p-3 text-center">Stock Actual</th>
-              <th class="p-3 text-right">Ajuste Rápido</th>
+              <th class="p-3">Precio (₡)</th>
+              <th class="p-3 text-center">Stock</th>
+              <th class="p-3 text-center">Ajuste</th>
+              <th class="p-3 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody id="stock-table-body" class="divide-y divide-slate-100"></tbody>
@@ -557,6 +573,459 @@
           Guardar Nota
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: EDITOR DE PRODUCTO (CREAR / MODIFICAR)                             -->
+  <!-- ========================================================================= -->
+  <div id="product-editor-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-pop flex flex-col max-h-[92vh]">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100 flex-shrink-0">
+        <div>
+          <h3 id="product-editor-title" class="text-lg font-black text-slate-900">Editar Producto</h3>
+          <p class="text-xs text-slate-400">Modifica precio, foto, descripción y stock del catálogo</p>
+        </div>
+        <button id="close-product-editor-btn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm cursor-pointer">
+          ✕
+        </button>
+      </div>
+
+      <form id="product-editor-form" class="space-y-3.5 overflow-y-auto py-4 flex-1">
+        <input type="hidden" id="prod-edit-id">
+
+        <!-- Vista Previa de la Foto -->
+        <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+          <div class="w-16 h-16 rounded-xl overflow-hidden bg-slate-200 flex-shrink-0 border border-slate-300 relative shadow-xs">
+            <img id="prod-edit-preview" src="https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80" alt="Preview" class="w-full h-full object-cover">
+          </div>
+          <div class="flex-1">
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">URL de la Foto / Imagen</label>
+            <input 
+              type="text" 
+              id="prod-edit-image" 
+              placeholder="https://images.unsplash.com/... o ruta local" 
+              class="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-800 outline-none focus:border-slate-800"
+              required
+            >
+          </div>
+        </div>
+
+        <!-- Nombre / Descripción -->
+        <div>
+          <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Nombre / Descripción del Producto</label>
+          <input 
+            type="text" 
+            id="prod-edit-name" 
+            placeholder="Ej: Hamburguesa Especial de la Casa" 
+            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 focus:bg-white focus:border-slate-800 outline-none"
+            required
+          >
+        </div>
+
+        <!-- Precio y SKU -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Precio en Colones (₡)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-3 flex items-center font-bold text-slate-400 text-xs">₡</span>
+              <input 
+                type="number" 
+                id="prod-edit-price" 
+                step="50" 
+                min="0"
+                placeholder="2500" 
+                class="w-full pl-7 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 font-mono font-bold text-xs text-slate-800 focus:bg-white focus:border-slate-800 outline-none"
+                required
+              >
+            </div>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Código / SKU</label>
+            <input 
+              type="text" 
+              id="prod-edit-sku" 
+              placeholder="HAM-001" 
+              class="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-800 outline-none"
+              required
+            >
+          </div>
+        </div>
+
+        <!-- Categoría y Stock -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Categoría</label>
+            <select id="prod-edit-category" class="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-800 focus:bg-white focus:border-slate-800 outline-none">
+              <option value="cafeteria">Cafetería & Panadería</option>
+              <option value="entradas">Entradas & Snacks</option>
+              <option value="platos">Platos Fuertes</option>
+              <option value="hamburguesas">Hamburguesas & Grill</option>
+              <option value="pastas">Pastas & Especialidades</option>
+              <option value="bebidas">Bebidas & Coctelería</option>
+              <option value="postres">Postres & Dulces</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Existencias / Stock</label>
+            <input 
+              type="number" 
+              id="prod-edit-stock" 
+              min="0" 
+              placeholder="50" 
+              class="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs font-bold text-slate-800 focus:bg-white focus:border-slate-800 outline-none"
+              required
+            >
+          </div>
+        </div>
+
+        <div class="flex gap-2 pt-3 border-t border-slate-100">
+          <button type="button" id="cancel-product-editor-btn" class="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer">
+            Cancelar
+          </button>
+          <button type="submit" class="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow-md">
+            Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: CONTROL DE CAJA Y TURNOS (GAMMA POS STYLE)                         -->
+  <!-- ========================================================================= -->
+  <div id="caja-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-5xl w-full p-6 shadow-2xl border border-slate-100 animate-pop flex flex-col max-h-[92vh]">
+      
+      <!-- Encabezado de Caja -->
+      <div class="flex justify-between items-center pb-4 border-b border-slate-100 flex-shrink-0">
+        <div>
+          <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+            🏦 Control de Caja & Turnos
+          </h3>
+          <p class="text-xs text-slate-500">Apertura, entradas, salidas, arqueo de gaveta en vivo y cierres de turno</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div id="caja-status-badge"></div>
+          <button id="close-caja-modal-btn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm cursor-pointer">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL 1: CAJA CERRADA (FORMULARIO DE APERTURA) -->
+      <div id="panel-caja-cerrada" class="hidden flex-col items-center justify-center py-12 text-center max-w-md mx-auto my-auto space-y-4">
+        <div class="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center text-3xl shadow-sm">
+          🔒
+        </div>
+        <div>
+          <h4 class="text-base font-extrabold text-slate-900">La Caja está Cerrada</h4>
+          <p class="text-xs text-slate-500">Ingresa el fondo inicial en efectivo para iniciar el turno de ventas</p>
+        </div>
+
+        <div class="w-full space-y-3 text-left bg-slate-50 p-5 rounded-2xl border border-slate-200/80">
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Cajero Responsable</label>
+            <input 
+              type="text" 
+              id="input-cajero-nombre" 
+              value="Juan (Caja 01)" 
+              class="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 outline-none"
+            >
+          </div>
+          <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Fondo Inicial en Efectivo (₡)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-3 flex items-center font-bold text-slate-400 text-sm">₡</span>
+              <input 
+                type="number" 
+                id="input-fondo-inicial" 
+                step="500" 
+                value="50000" 
+                placeholder="50000" 
+                class="w-full pl-8 pr-4 py-2.5 rounded-xl bg-white border-2 border-slate-200 focus:border-slate-800 font-mono font-bold text-sm text-slate-900 outline-none"
+              >
+            </div>
+          </div>
+          <button 
+            type="button" 
+            id="btn-abrir-caja" 
+            class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+          >
+            Abrir Turno de Caja
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL 2: CAJA ABIERTA (DASHBOARD & ARQUEO EN VIVO) -->
+      <div id="panel-caja-abierta" class="hidden flex-col flex-1 overflow-hidden">
+        
+        <!-- Métricas Principales de Gaveta -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4 flex-shrink-0">
+          
+          <div class="bg-slate-50 border border-slate-200/80 p-3 rounded-2xl">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Fondo Inicial</span>
+            <span id="caja-val-fondo" class="text-base font-black text-slate-900 font-mono">₡0</span>
+          </div>
+
+          <div class="bg-emerald-50 border border-emerald-200/60 p-3 rounded-2xl">
+            <span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">Ventas en Efectivo</span>
+            <span id="caja-val-ventas-efectivo" class="text-base font-black text-emerald-800 font-mono">₡0</span>
+          </div>
+
+          <div class="bg-blue-50 border border-blue-200/60 p-3 rounded-2xl">
+            <span class="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">Tarjetas</span>
+            <span id="caja-val-ventas-tarjeta" class="text-base font-black text-blue-800 font-mono">₡0</span>
+          </div>
+
+          <div class="bg-purple-50 border border-purple-200/60 p-3 rounded-2xl">
+            <span class="text-[10px] font-bold text-purple-700 uppercase tracking-wider block">Sinpe Móvil / Transf.</span>
+            <span id="caja-val-ventas-sinpe" class="text-base font-black text-purple-800 font-mono">₡0</span>
+          </div>
+
+        </div>
+
+        <!-- Fila de Entradas, Salidas y Total en Gaveta -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 flex-shrink-0">
+          <div class="bg-amber-50 border border-amber-200/60 p-3.5 rounded-2xl flex justify-between items-center">
+            <div>
+              <span class="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">(+) Entradas de Dinero</span>
+              <span id="caja-val-entradas" class="text-lg font-black text-amber-800 font-mono">+₡0</span>
+            </div>
+            <button id="btn-caja-entrada" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs cursor-pointer">
+              + Entrada
+            </button>
+          </div>
+
+          <div class="bg-rose-50 border border-rose-200/60 p-3.5 rounded-2xl flex justify-between items-center">
+            <div>
+              <span class="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">(-) Salidas / Gastos</span>
+              <span id="caja-val-salidas" class="text-lg font-black text-rose-800 font-mono">-₡0</span>
+            </div>
+            <button id="btn-caja-salida" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs cursor-pointer">
+              - Salida
+            </button>
+          </div>
+
+          <div class="bg-slate-900 text-white p-3.5 rounded-2xl flex justify-between items-center shadow-md">
+            <div>
+              <span class="text-[10px] font-bold text-slate-300 uppercase tracking-wider block">💵 Efectivo Esperado en Gaveta</span>
+              <span id="caja-val-esperado" class="text-xl font-black font-mono">₡0</span>
+            </div>
+            <button id="btn-caja-cierre-action" class="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs shadow-sm cursor-pointer">
+              🔒 Cerrar Turno
+            </button>
+          </div>
+        </div>
+
+        <!-- Pestañas / Tablas de Movimientos y Ventas -->
+        <div class="flex-1 overflow-y-auto border border-slate-200 rounded-2xl">
+          <div class="p-3 bg-slate-50 border-b border-slate-200 font-bold text-xs text-slate-700 flex justify-between items-center sticky top-0">
+            <span>Historial de Entradas y Salidas de este Turno</span>
+            <span class="text-[11px] text-slate-500 font-normal">Total Ventas Facturadas: <b id="caja-val-total-ventas" class="text-slate-900">₡0</b></span>
+          </div>
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-500 font-bold border-b border-slate-200">
+              <tr>
+                <th class="p-3">Tipo</th>
+                <th class="p-3">Monto</th>
+                <th class="p-3">Motivo / Concepto</th>
+                <th class="p-3">Hora</th>
+                <th class="p-3">Cajero</th>
+              </tr>
+            </thead>
+            <tbody id="caja-movimientos-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+
+          <div class="p-3 bg-slate-50 border-t border-b border-slate-200 font-bold text-xs text-slate-700 mt-4">
+            Ventas Cobradas en este Turno
+          </div>
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-500 font-bold border-b border-slate-200">
+              <tr>
+                <th class="p-3">Ticket</th>
+                <th class="p-3">Mesa</th>
+                <th class="p-3">Método</th>
+                <th class="p-3">Hora</th>
+                <th class="p-3 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody id="caja-ventas-table-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: REGISTRAR ENTRADA / SALIDA DE EFECTIVO                             -->
+  <!-- ========================================================================= -->
+  <div id="caja-movimiento-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-pop">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <div>
+          <h3 id="caja-mov-modal-title" class="text-base font-black text-slate-900">Registrar Movimiento</h3>
+          <span id="caja-mov-modal-badge" class="px-2 py-0.5 rounded text-[10px] font-bold"></span>
+        </div>
+        <button id="close-movimiento-modal-btn" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold cursor-pointer">✕</button>
+      </div>
+
+      <div class="space-y-3.5 my-4">
+        <input type="hidden" id="caja-mov-tipo" value="entrada">
+
+        <div>
+          <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Monto en Colones (₡)</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3 flex items-center font-bold text-slate-400 text-sm">₡</span>
+            <input 
+              type="number" 
+              id="caja-mov-monto" 
+              step="100" 
+              placeholder="0" 
+              class="w-full pl-8 pr-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-slate-800 font-mono font-bold text-sm text-slate-900 outline-none"
+            >
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1.5">
+          <button data-value="1000" class="quick-mov-btn py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">₡1.000</button>
+          <button data-value="2000" class="quick-mov-btn py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">₡2.000</button>
+          <button data-value="5000" class="quick-mov-btn py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">₡5.000</button>
+          <button data-value="10000" class="quick-mov-btn py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 cursor-pointer">₡10.000</button>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Motivo / Concepto</label>
+          <input 
+            type="text" 
+            id="caja-mov-concepto" 
+            placeholder="Ej: Cambio de billetes, Compra de hielo, Pago proveedor..." 
+            class="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 focus:bg-white focus:border-slate-800 outline-none"
+          >
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2 border-t border-slate-100">
+        <button id="btn-guardar-movimiento" class="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider shadow-md cursor-pointer">
+          Guardar Movimiento
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: ARQUEO Y CIERRE DE CAJA (CUADRE)                                    -->
+  <!-- ========================================================================= -->
+  <div id="caja-cierre-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-pop flex flex-col max-h-[92vh]">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="text-base font-black text-slate-900">Arqueo & Cierre de Caja</h3>
+          <p class="text-xs text-slate-400">Cajero: <b id="cierre-modal-cajero"></b> • <span id="cierre-modal-hora"></span></p>
+        </div>
+        <button id="close-cierre-modal-btn" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold cursor-pointer">✕</button>
+      </div>
+
+      <div class="space-y-3 my-3 text-xs overflow-y-auto flex-1">
+        <!-- Desglose de Dinero -->
+        <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1.5">
+          <div class="flex justify-between text-slate-600">
+            <span>Fondo Inicial:</span>
+            <span id="cierre-modal-fondo" class="font-bold text-slate-800">₡0</span>
+          </div>
+          <div class="flex justify-between text-slate-600">
+            <span>(+) Ventas en Efectivo:</span>
+            <span id="cierre-modal-ventas-efectivo" class="font-bold text-slate-900">₡0</span>
+          </div>
+          <div class="flex justify-between text-emerald-700">
+            <span>(+) Entradas de Efectivo:</span>
+            <span id="cierre-modal-entradas" class="font-bold">+₡0</span>
+          </div>
+          <div class="flex justify-between text-rose-700">
+            <span>(-) Salidas / Gastos:</span>
+            <span id="cierre-modal-salidas" class="font-bold">-₡0</span>
+          </div>
+          <div class="flex justify-between font-black text-sm text-slate-900 pt-1.5 border-t border-slate-200">
+            <span>EFECTIVO ESPERADO EN GAVETA:</span>
+            <span id="cierre-modal-esperado" class="font-mono text-emerald-800">₡0</span>
+          </div>
+        </div>
+
+        <!-- Otros medios de pago -->
+        <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 space-y-1 text-[11px]">
+          <div class="flex justify-between text-slate-500">
+            <span>Ventas con Tarjeta:</span>
+            <span id="cierre-modal-tarjeta" class="font-bold text-slate-700">₡0</span>
+          </div>
+          <div class="flex justify-between text-slate-500">
+            <span>Ventas Sinpe Móvil / Transfer:</span>
+            <span id="cierre-modal-sinpe" class="font-bold text-slate-700">₡0</span>
+          </div>
+          <div class="flex justify-between text-slate-700 font-bold pt-1 border-t border-slate-200">
+            <span>Total Facturado del Turno:</span>
+            <span id="cierre-modal-total-ventas">₡0</span>
+          </div>
+        </div>
+
+        <!-- Conteo de Efectivo Real -->
+        <div class="space-y-1.5 pt-1">
+          <label class="text-xs font-black text-slate-800 block">¿Cuánto dinero en efectivo hay físicamente en la gaveta?</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3 flex items-center font-bold text-slate-400 text-sm">₡</span>
+            <input 
+              type="number" 
+              id="caja-cierre-contado" 
+              step="100" 
+              class="w-full pl-8 pr-4 py-3 rounded-xl border-2 border-slate-300 focus:border-slate-900 font-mono font-black text-base text-slate-900 outline-none"
+            >
+          </div>
+          <div id="caja-cierre-diferencia" class="p-2 rounded-xl bg-slate-100 text-center text-xs"></div>
+        </div>
+
+        <div>
+          <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Observaciones / Justificación de cierre</label>
+          <input 
+            type="text" 
+            id="caja-cierre-observaciones" 
+            placeholder="Opcional..." 
+            class="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 outline-none"
+          >
+        </div>
+      </div>
+
+      <button 
+        id="btn-confirmar-cierre-caja" 
+        class="w-full py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider shadow-lg cursor-pointer"
+      >
+        Confirmar y Cerrar Caja
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: COMPROBANTE DE CIERRE (TICKET TÉRMICO Z)                           -->
+  <!-- ========================================================================= -->
+  <div id="cierre-receipt-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-pop flex flex-col max-h-[92vh]">
+      <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+        <h3 class="text-sm font-bold text-slate-800">Cierre de Caja Emitido</h3>
+        <button id="close-cierre-receipt-btn" class="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold cursor-pointer">✕</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto py-3 my-2 bg-slate-50 p-4 rounded-xl font-mono" id="cierre-print-area">
+        <div id="cierre-receipt-content"></div>
+      </div>
+
+      <button 
+        id="btn-print-cierre-ticket" 
+        class="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+        </svg>
+        Imprimir Comprobante Z
+      </button>
     </div>
   </div>
 

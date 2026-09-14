@@ -148,10 +148,12 @@ body {
   body * {
     visibility: hidden;
   }
-  #ticket-print-area, #ticket-print-area * {
+  #ticket-print-area, #ticket-print-area *,
+  #cierre-print-area, #cierre-print-area * {
     visibility: visible;
   }
-  #ticket-print-area {
+  #ticket-print-area,
+  #cierre-print-area {
     position: absolute;
     left: 0;
     top: 0;

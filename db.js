@@ -76,7 +76,41 @@ export async function initDatabase() {
       );
     `);
 
-    // 4. Tabla de Ajustes / Configuración
+    // 4. Tabla de Cajas / Turnos
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cajas (
+        id VARCHAR(50) PRIMARY KEY,
+        cajero VARCHAR(100) NOT NULL,
+        fecha_apertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        monto_inicial NUMERIC(12, 2) DEFAULT 0,
+        fecha_cierre TIMESTAMP,
+        monto_final_efectivo NUMERIC(12, 2) DEFAULT 0,
+        total_ventas_efectivo NUMERIC(12, 2) DEFAULT 0,
+        total_ventas_tarjeta NUMERIC(12, 2) DEFAULT 0,
+        total_ventas_sinpe NUMERIC(12, 2) DEFAULT 0,
+        total_entradas NUMERIC(12, 2) DEFAULT 0,
+        total_salidas NUMERIC(12, 2) DEFAULT 0,
+        total_esperado_efectivo NUMERIC(12, 2) DEFAULT 0,
+        diferencia NUMERIC(12, 2) DEFAULT 0,
+        observaciones TEXT,
+        estado VARCHAR(30) DEFAULT 'abierta'
+      );
+    `);
+
+    // 5. Tabla de Movimientos de Caja (Entradas / Salidas)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS caja_movimientos (
+        id VARCHAR(50) PRIMARY KEY,
+        caja_id VARCHAR(50) REFERENCES cajas(id) ON DELETE CASCADE,
+        tipo VARCHAR(20) NOT NULL,
+        monto NUMERIC(12, 2) NOT NULL,
+        concepto TEXT NOT NULL,
+        cajero VARCHAR(100),
+        fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 6. Tabla de Ajustes / Configuración
     await pool.query(`
       CREATE TABLE IF NOT EXISTS configuracion (
         clave VARCHAR(50) PRIMARY KEY,

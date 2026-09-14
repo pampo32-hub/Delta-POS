@@ -68,6 +68,82 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// 1.1 CREAR PRODUCTO
+app.post('/api/products', async (req, res) => {
+  try {
+    const { id, sku, name, price, category, image, stock, taxRate } = req.body;
+    const prodId = id || 'prod_' + Date.now();
+    const result = await query(
+      `INSERT INTO productos (id, sku, nombre, precio, categoria, imagen, stock, impuesto, activo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+       RETURNING *;`,
+      [prodId, sku || 'SKU-' + Date.now(), name, Number(price) || 0, category || 'cafeteria', image || '', Number(stock) || 50, Number(taxRate) || 0.13]
+    );
+    const r = result.rows[0];
+    res.status(201).json({
+      id: r.id,
+      sku: r.sku,
+      name: r.nombre,
+      price: parseFloat(r.precio),
+      category: r.categoria,
+      image: r.imagen,
+      stock: parseInt(r.stock, 10),
+      taxRate: parseFloat(r.impuesto)
+    });
+  } catch (error) {
+    console.error('Error al crear producto:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 1.2 ACTUALIZAR PRODUCTO (NOMBRE, PRECIO, FOTO, SKU, CATEGORÍA, STOCK)
+app.put('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sku, name, price, category, image, stock, taxRate } = req.body;
+    const result = await query(
+      `UPDATE productos
+       SET sku = COALESCE($1, sku),
+           nombre = COALESCE($2, nombre),
+           precio = COALESCE($3, precio),
+           categoria = COALESCE($4, categoria),
+           imagen = COALESCE($5, imagen),
+           stock = COALESCE($6, stock),
+           impuesto = COALESCE($7, impuesto)
+       WHERE id = $8 RETURNING *;`,
+      [sku, name, price !== undefined ? Number(price) : null, category, image, stock !== undefined ? Number(stock) : null, taxRate !== undefined ? Number(taxRate) : null, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    const r = result.rows[0];
+    res.json({
+      id: r.id,
+      sku: r.sku,
+      name: r.nombre,
+      price: parseFloat(r.precio),
+      category: r.categoria,
+      image: r.imagen,
+      stock: parseInt(r.stock, 10),
+      taxRate: parseFloat(r.impuesto)
+    });
+  } catch (error) {
+    console.error('Error al actualizar producto:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 1.3 ELIMINAR / DESACTIVAR PRODUCTO
+app.delete('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query('UPDATE productos SET activo = false WHERE id = $1 RETURNING *;', [id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    res.json({ ok: true, id });
+  } catch (error) {
+    console.error('Error al eliminar producto:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 2. ACTUALIZAR STOCK DE PRODUCTO
 app.put('/api/products/:id/stock', async (req, res) => {
   try {
@@ -223,6 +299,159 @@ app.get('/api/sales', async (req, res) => {
     })));
   } catch (error) {
     res.status(500).json({ error: 'Error al consultar historial de ventas' });
+  }
+});
+
+// ============================================================================
+// RUTAS DE CAJA Y TURNOS (GAMMA POS STYLE)
+// ============================================================================
+
+// 7. OBTENER CAJA ACTIVA
+app.get('/api/caja/activa', async (req, res) => {
+  try {
+    const cajaRes = await query(`SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY fecha_apertura DESC LIMIT 1;`);
+    if (cajaRes.rowCount === 0) {
+      return res.json({ caja: null, movimientos: [] });
+    }
+    const caja = cajaRes.rows[0];
+    const movsRes = await query(`SELECT * FROM caja_movimientos WHERE caja_id = $1 ORDER BY fecha_hora ASC;`, [caja.id]);
+    res.json({
+      caja: {
+        id: caja.id,
+        cajero: caja.cajero,
+        fechaApertura: caja.fecha_apertura,
+        montoInicial: parseFloat(caja.monto_inicial),
+        estado: caja.estado
+      },
+      movimientos: movsRes.rows.map(m => ({
+        id: m.id,
+        cajaId: m.caja_id,
+        tipo: m.tipo,
+        monto: parseFloat(m.monto),
+        concepto: m.concepto,
+        cajero: m.cajero,
+        fechaHora: m.fecha_hora
+      }))
+    });
+  } catch (error) {
+    console.error('Error al obtener caja activa:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 8. APERTURA DE CAJA
+app.post('/api/caja/apertura', async (req, res) => {
+  try {
+    const { cajero, montoInicial } = req.body;
+    // Cerrar cualquier caja abierta residual
+    await query(`UPDATE cajas SET estado = 'cerrada', fecha_cierre = CURRENT_TIMESTAMP WHERE estado = 'abierta';`);
+    const cajaId = 'CAJA-' + Date.now();
+    const result = await query(
+      `INSERT INTO cajas (id, cajero, monto_inicial, estado)
+       VALUES ($1, $2, $3, 'abierta')
+       RETURNING *;`,
+      [cajaId, cajero || 'Juan (Caja 01)', Number(montoInicial) || 0]
+    );
+    const c = result.rows[0];
+    res.status(201).json({
+      id: c.id,
+      cajero: c.cajero,
+      fechaApertura: c.fecha_apertura,
+      montoInicial: parseFloat(c.monto_inicial),
+      estado: c.estado
+    });
+  } catch (error) {
+    console.error('Error al abrir caja:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 9. REGISTRAR MOVIMIENTO DE CAJA (ENTRADA / SALIDA)
+app.post('/api/caja/movimiento', async (req, res) => {
+  try {
+    const { cajaId, tipo, monto, concepto, cajero } = req.body;
+    const movId = 'MOV-' + Date.now();
+    const result = await query(
+      `INSERT INTO caja_movimientos (id, caja_id, tipo, monto, concepto, cajero)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *;`,
+      [movId, cajaId, tipo, Number(monto) || 0, concepto || 'Sin concepto', cajero || 'Cajero']
+    );
+    const m = result.rows[0];
+    res.status(201).json({
+      id: m.id,
+      cajaId: m.caja_id,
+      tipo: m.tipo,
+      monto: parseFloat(m.monto),
+      concepto: m.concepto,
+      cajero: m.cajero,
+      fechaHora: m.fecha_hora
+    });
+  } catch (error) {
+    console.error('Error al registrar movimiento:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 10. CIERRE DE CAJA (ARQUEO / CUADRE)
+app.post('/api/caja/cierre', async (req, res) => {
+  try {
+    const {
+      cajaId,
+      montoFinalEfectivo,
+      totalVentasEfectivo,
+      totalVentasTarjeta,
+      totalVentasSinpe,
+      totalEntradas,
+      totalSalidas,
+      totalEsperadoEfectivo,
+      diferencia,
+      observaciones
+    } = req.body;
+
+    const result = await query(
+      `UPDATE cajas
+       SET fecha_cierre = CURRENT_TIMESTAMP,
+           monto_final_efectivo = $1,
+           total_ventas_efectivo = $2,
+           total_ventas_tarjeta = $3,
+           total_ventas_sinpe = $4,
+           total_entradas = $5,
+           total_salidas = $6,
+           total_esperado_efectivo = $7,
+           diferencia = $8,
+           observaciones = $9,
+           estado = 'cerrada'
+       WHERE id = $10 RETURNING *;`,
+      [
+        Number(montoFinalEfectivo) || 0,
+        Number(totalVentasEfectivo) || 0,
+        Number(totalVentasTarjeta) || 0,
+        Number(totalVentasSinpe) || 0,
+        Number(totalEntradas) || 0,
+        Number(totalSalidas) || 0,
+        Number(totalEsperadoEfectivo) || 0,
+        Number(diferencia) || 0,
+        observaciones || '',
+        cajaId
+      ]
+    );
+
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Caja no encontrada' });
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error al cerrar caja:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 11. HISTORIAL DE CAJAS CERRADAS
+app.get('/api/caja/historial', async (req, res) => {
+  try {
+    const result = await query(`SELECT * FROM cajas ORDER BY fecha_apertura DESC LIMIT 50;`);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

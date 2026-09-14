@@ -12,7 +12,10 @@ const STORAGE_KEYS = {
   TABLES: 'delta_pos_tables',
   SETTINGS: 'delta_pos_settings',
   SALES_HISTORY: 'delta_pos_sales_history',
-  TICKET_COUNTER: 'delta_pos_ticket_counter'
+  TICKET_COUNTER: 'delta_pos_ticket_counter',
+  CAJA_ACTIVA: 'delta_pos_caja_activa',
+  CAJA_MOVIMIENTOS: 'delta_pos_caja_movimientos',
+  CAJA_HISTORIAL: 'delta_pos_caja_historial'
 };
 
 const DEFAULT_SETTINGS = {
@@ -73,7 +76,6 @@ class StateManager {
     const savedTables = localStorage.getItem(STORAGE_KEYS.TABLES);
     this.tables = savedTables ? JSON.parse(savedTables) : DEFAULT_TABLES;
 
-    // Cargar comanda por mesa (objeto { tableId: { items: [], customer: '', notes: '', ticketId: '' } })
     // Cargar comanda por mesa
     const savedOrders = localStorage.getItem(STORAGE_KEYS.ORDERS);
     this.orders = savedOrders ? JSON.parse(savedOrders) : {};
@@ -90,11 +92,20 @@ class StateManager {
     const savedHistory = localStorage.getItem(STORAGE_KEYS.SALES_HISTORY);
     this.salesHistory = savedHistory ? JSON.parse(savedHistory) : [];
 
+    // Cargar Caja Activa y Movimientos (Gamma POS Style)
+    const savedCaja = localStorage.getItem(STORAGE_KEYS.CAJA_ACTIVA);
+    this.cajaActiva = savedCaja ? JSON.parse(savedCaja) : null;
+
+    const savedMovs = localStorage.getItem(STORAGE_KEYS.CAJA_MOVIMIENTOS);
+    this.cajaMovimientos = savedMovs ? JSON.parse(savedMovs) : [];
+
+    const savedCajasHist = localStorage.getItem(STORAGE_KEYS.CAJA_HISTORIAL);
+    this.cajaHistorial = savedCajasHist ? JSON.parse(savedCajasHist) : [];
+
     // Filtros de vista activa
     this.selectedCategory = 'todos';
     this.searchQuery = '';
-    this.activeView = 'pos'; // 'pos', 'tables', 'sales', 'settings'
-    this.activeView = 'pos';
+    this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales'
 
     // Asegurar que la mesa activa tenga un objeto comanda inicializado
     this.ensureOrderExists(this.activeTableId);
@@ -140,6 +151,16 @@ class StateManager {
         }
       }
 
+      // 4. Sincronizar Caja Activa
+      const cajaRes = await fetch('/api/caja/activa');
+      if (cajaRes.ok) {
+        const cajaData = await cajaRes.json();
+        if (cajaData && cajaData.caja) {
+          this.cajaActiva = cajaData.caja;
+          this.cajaMovimientos = cajaData.movimientos || [];
+        }
+      }
+
       this.saveState();
       this.notify();
     } catch (e) {
@@ -155,6 +176,9 @@ class StateManager {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TABLE, this.activeTableId);
     localStorage.setItem(STORAGE_KEYS.TICKET_COUNTER, this.ticketCounter.toString());
     localStorage.setItem(STORAGE_KEYS.SALES_HISTORY, JSON.stringify(this.salesHistory));
+    localStorage.setItem(STORAGE_KEYS.CAJA_ACTIVA, JSON.stringify(this.cajaActiva));
+    localStorage.setItem(STORAGE_KEYS.CAJA_MOVIMIENTOS, JSON.stringify(this.cajaMovimientos));
+    localStorage.setItem(STORAGE_KEYS.CAJA_HISTORIAL, JSON.stringify(this.cajaHistorial));
   }
 
   ensureOrderExists(tableId) {
@@ -271,6 +295,261 @@ class StateManager {
     this.notify();
 
     return completedSale;
+  }
+
+  // ==========================================================================
+  // OPERACIONES CRUD DE PRODUCTOS
+  // ==========================================================================
+  async addProduct(productData) {
+    const newProduct = {
+      id: productData.id || 'prod_' + Date.now(),
+      sku: productData.sku || 'SKU-' + Date.now().toString().slice(-4),
+      name: productData.name.trim(),
+      price: Number(productData.price) || 0,
+      category: productData.category || 'cafeteria',
+      image: productData.image || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80',
+      stock: Number(productData.stock) || 50,
+      taxRate: Number(productData.taxRate) || 0.13
+    };
+
+    this.products.push(newProduct);
+    this.saveState();
+    this.notify();
+
+    // Sincronizar backend si está disponible
+    try {
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProduct)
+      });
+    } catch (e) {}
+
+    return newProduct;
+  }
+
+  async updateProduct(productId, productData) {
+    const prod = this.products.find(p => p.id === productId);
+    if (!prod) return null;
+
+    if (productData.name !== undefined) prod.name = productData.name.trim();
+    if (productData.sku !== undefined) prod.sku = productData.sku.trim();
+    if (productData.price !== undefined) prod.price = Number(productData.price);
+    if (productData.category !== undefined) prod.category = productData.category;
+    if (productData.image !== undefined) prod.image = productData.image.trim();
+    if (productData.stock !== undefined) prod.stock = Number(productData.stock);
+    if (productData.taxRate !== undefined) prod.taxRate = Number(productData.taxRate);
+
+    this.saveState();
+    this.notify();
+
+    // Sincronizar backend si está disponible
+    try {
+      await fetch(`/api/products/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prod)
+      });
+    } catch (e) {}
+
+    return prod;
+  }
+
+  async deleteProduct(productId) {
+    this.products = this.products.filter(p => p.id !== productId);
+    this.saveState();
+    this.notify();
+
+    // Sincronizar backend
+    try {
+      await fetch(`/api/products/${productId}`, { method: 'DELETE' });
+    } catch (e) {}
+
+    return true;
+  }
+
+  // ==========================================================================
+  // OPERACIONES DE CAJA Y TURNOS (GAMMA POS STYLE)
+  // ==========================================================================
+  async openCaja(initialAmount = 0, cashierName = '') {
+    const cashier = cashierName || this.settings.cashierName;
+    const nuevaCaja = {
+      id: 'CAJA-' + Date.now(),
+      cajero: cashier,
+      fechaApertura: new Date().toISOString(),
+      montoInicial: Number(initialAmount) || 0,
+      estado: 'abierta'
+    };
+
+    this.cajaActiva = nuevaCaja;
+    this.cajaMovimientos = [];
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch('/api/caja/apertura', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cajero: cashier, montoInicial: initialAmount })
+      });
+    } catch (e) {}
+
+    return nuevaCaja;
+  }
+
+  async addCajaMovement(type, amount, concept, cashierName = '') {
+    if (!this.cajaActiva || this.cajaActiva.estado !== 'abierta') {
+      throw new Error('No hay una caja abierta actualmente.');
+    }
+
+    const mov = {
+      id: 'MOV-' + Date.now(),
+      cajaId: this.cajaActiva.id,
+      tipo: type, // 'entrada' o 'salida'
+      monto: Math.abs(Number(amount) || 0),
+      concepto: (concept || '').trim(),
+      cajero: cashierName || this.cajaActiva.cajero || this.settings.cashierName,
+      fechaHora: new Date().toISOString()
+    };
+
+    this.cajaMovimientos.unshift(mov);
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch('/api/caja/movimiento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mov)
+      });
+    } catch (e) {}
+
+    return mov;
+  }
+
+  getCajaStats() {
+    if (!this.cajaActiva || this.cajaActiva.estado !== 'abierta') {
+      return {
+        abierta: false,
+        montoInicial: 0,
+        ventasEfectivo: 0,
+        ventasTarjeta: 0,
+        ventasSinpe: 0,
+        totalEntradas: 0,
+        totalSalidas: 0,
+        totalEsperadoEfectivo: 0,
+        totalVentasTurno: 0,
+        cantidadVentas: 0,
+        ventasTurno: [],
+        movimientos: []
+      };
+    }
+
+    const fechaApertura = new Date(this.cajaActiva.fechaApertura);
+
+    // Filtrar ventas realizadas durante el turno activo
+    const ventasTurno = (this.salesHistory || []).filter(sale => {
+      return new Date(sale.completedAt) >= fechaApertura;
+    });
+
+    let ventasEfectivo = 0;
+    let ventasTarjeta = 0;
+    let ventasSinpe = 0;
+
+    ventasTurno.forEach(v => {
+      const method = (v.payment?.method || '').toLowerCase();
+      const total = Number(v.payment?.totals?.total || 0);
+      if (method === 'cash' || method.includes('efectivo')) {
+        ventasEfectivo += total;
+      } else if (method === 'card' || method.includes('tarjeta')) {
+        ventasTarjeta += total;
+      } else {
+        ventasSinpe += total; // transferencias y Sinpe Móvil
+      }
+    });
+
+    let totalEntradas = 0;
+    let totalSalidas = 0;
+
+    (this.cajaMovimientos || []).forEach(m => {
+      if (m.tipo === 'entrada') totalEntradas += Number(m.monto || 0);
+      if (m.tipo === 'salida') totalSalidas += Number(m.monto || 0);
+    });
+
+    const montoInicial = Number(this.cajaActiva.montoInicial || 0);
+    const totalEsperadoEfectivo = Math.round(montoInicial + ventasEfectivo + totalEntradas - totalSalidas);
+    const totalVentasTurno = ventasEfectivo + ventasTarjeta + ventasSinpe;
+
+    return {
+      abierta: true,
+      caja: this.cajaActiva,
+      montoInicial,
+      ventasEfectivo,
+      ventasTarjeta,
+      ventasSinpe,
+      totalEntradas,
+      totalSalidas,
+      totalEsperadoEfectivo,
+      totalVentasTurno,
+      cantidadVentas: ventasTurno.length,
+      ventasTurno,
+      movimientos: this.cajaMovimientos
+    };
+  }
+
+  async closeCaja(actualCash = 0, observations = '') {
+    if (!this.cajaActiva || this.cajaActiva.estado !== 'abierta') {
+      throw new Error('No hay una caja abierta para cerrar.');
+    }
+
+    const stats = this.getCajaStats();
+    const montoContado = Number(actualCash) || 0;
+    const diferencia = montoContado - stats.totalEsperadoEfectivo;
+
+    const cierre = {
+      ...this.cajaActiva,
+      fechaCierre: new Date().toISOString(),
+      montoFinalEfectivo: montoContado,
+      totalVentasEfectivo: stats.ventasEfectivo,
+      totalVentasTarjeta: stats.ventasTarjeta,
+      totalVentasSinpe: stats.ventasSinpe,
+      totalEntradas: stats.totalEntradas,
+      totalSalidas: stats.totalSalidas,
+      totalEsperadoEfectivo: stats.totalEsperadoEfectivo,
+      diferencia: diferencia,
+      observaciones: (observations || '').trim(),
+      estado: 'cerrada',
+      movimientos: [...this.cajaMovimientos],
+      ventas: [...stats.ventasTurno]
+    };
+
+    this.cajaHistorial.unshift(cierre);
+    this.cajaActiva = null;
+    this.cajaMovimientos = [];
+
+    this.saveState();
+    this.notify();
+
+    try {
+      await fetch('/api/caja/cierre', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cajaId: cierre.id,
+          montoFinalEfectivo: montoContado,
+          totalVentasEfectivo: stats.ventasEfectivo,
+          totalVentasTarjeta: stats.ventasTarjeta,
+          totalVentasSinpe: stats.ventasSinpe,
+          totalEntradas: stats.totalEntradas,
+          totalSalidas: stats.totalSalidas,
+          totalEsperadoEfectivo: stats.totalEsperadoEfectivo,
+          diferencia: diferencia,
+          observaciones: observations
+        })
+      });
+    } catch (e) {}
+
+    return cierre;
   }
 
   subscribe(listener) {

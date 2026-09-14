@@ -7,6 +7,7 @@ import { state } from './state.js';
 import { CartController } from './cart.js';
 import { PaymentController } from './payment.js';
 import { PrintController } from './print.js';
+import { CajaController } from './caja.js';
 
 class DeltaPOSApp {
   constructor() {
@@ -18,6 +19,7 @@ class DeltaPOSApp {
     // Inicializar módulos auxiliares
     PaymentController.init();
     PrintController.init();
+    CajaController.init();
 
     // Referencias del DOM
     this.categoriesContainer = document.getElementById('categories-container');
@@ -50,12 +52,15 @@ class DeltaPOSApp {
     this.navPosBtn = document.getElementById('nav-pos-btn');
     this.navTablesBtn = document.getElementById('nav-tables-btn');
     this.navStockBtn = document.getElementById('nav-stock-btn');
+    this.navCajaBtn = document.getElementById('nav-caja-btn');
     this.navReportsBtn = document.getElementById('nav-reports-btn');
 
     // Modales Adicionales
     this.tablesModal = document.getElementById('tables-modal');
     this.stockModal = document.getElementById('stock-modal');
     this.reportsModal = document.getElementById('reports-modal');
+    this.cajaModal = document.getElementById('caja-modal');
+    this.productEditorModal = document.getElementById('product-editor-modal');
 
     // Modal de notas
     this.noteModal = document.getElementById('note-modal');
@@ -74,6 +79,7 @@ class DeltaPOSApp {
 
     this.checkSession();
     this.bindEvents();
+    this.bindProductEditorEvents();
     this.renderCategories();
     this.renderTablesSelector();
     this.renderProducts();
@@ -88,6 +94,13 @@ class DeltaPOSApp {
       if (!this.tablesModal.classList.contains('hidden')) {
         this.renderTablesGrid();
       }
+      if (!this.stockModal.classList.contains('hidden')) {
+        this.renderStockTable(document.getElementById('stock-search-input')?.value.toLowerCase() || '');
+      }
+      if (!this.cajaModal.classList.contains('hidden')) {
+        CajaController.render();
+      }
+      CajaController.updateNavBadge();
     });
   }
 
@@ -172,6 +185,13 @@ class DeltaPOSApp {
       this.navStockBtn.addEventListener('click', () => {
         this.setActiveNav('stock');
         this.openStockModal();
+      });
+    }
+
+    if (this.navCajaBtn) {
+      this.navCajaBtn.addEventListener('click', () => {
+        this.setActiveNav('caja');
+        this.openCajaModal();
       });
     }
 
@@ -354,7 +374,7 @@ class DeltaPOSApp {
   }
 
   setActiveNav(tab) {
-    const navButtons = [this.navPosBtn, this.navTablesBtn, this.navStockBtn, this.navReportsBtn];
+    const navButtons = [this.navPosBtn, this.navTablesBtn, this.navStockBtn, this.navCajaBtn, this.navReportsBtn];
     navButtons.forEach(btn => {
       if (!btn) return;
       btn.classList.remove('text-slate-900', 'bg-slate-100', 'active');
@@ -365,6 +385,7 @@ class DeltaPOSApp {
       pos: this.navPosBtn,
       tables: this.navTablesBtn,
       stock: this.navStockBtn,
+      caja: this.navCajaBtn,
       reports: this.navReportsBtn
     };
 
@@ -383,12 +404,141 @@ class DeltaPOSApp {
       this.stockModal.classList.add('hidden');
       this.stockModal.classList.remove('flex');
     }
+    if (this.cajaModal) {
+      this.cajaModal.classList.add('hidden');
+      this.cajaModal.classList.remove('flex');
+    }
+    if (this.productEditorModal) {
+      this.productEditorModal.classList.add('hidden');
+      this.productEditorModal.classList.remove('flex');
+    }
     if (this.reportsModal) {
       this.reportsModal.classList.add('hidden');
       this.reportsModal.classList.remove('flex');
     }
     PaymentController.closeModal();
     this.closeNoteModal();
+  }
+
+  openCajaModal() {
+    this.closeAllModals();
+    this.setActiveNav('caja');
+    CajaController.openModal();
+  }
+
+  bindProductEditorEvents() {
+    const btnNuevo = document.getElementById('btn-nuevo-producto');
+    const closeBtn = document.getElementById('close-product-editor-btn');
+    const cancelBtn = document.getElementById('cancel-product-editor-btn');
+    const form = document.getElementById('product-editor-form');
+    const imageInput = document.getElementById('prod-edit-image');
+    const previewImg = document.getElementById('prod-edit-preview');
+
+    if (btnNuevo) {
+      btnNuevo.addEventListener('click', () => {
+        this.openProductEditor(null);
+      });
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        this.closeProductEditor();
+      });
+    }
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        this.closeProductEditor();
+      });
+    }
+
+    if (imageInput && previewImg) {
+      imageInput.addEventListener('input', () => {
+        const val = imageInput.value.trim();
+        if (val) previewImg.src = val;
+      });
+    }
+
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('prod-edit-id')?.value;
+        const name = document.getElementById('prod-edit-name')?.value;
+        const price = parseFloat(document.getElementById('prod-edit-price')?.value) || 0;
+        const sku = document.getElementById('prod-edit-sku')?.value;
+        const category = document.getElementById('prod-edit-category')?.value;
+        const stock = parseInt(document.getElementById('prod-edit-stock')?.value, 10) || 0;
+        const image = document.getElementById('prod-edit-image')?.value;
+
+        if (!name || price < 0) {
+          alert('Por favor completa todos los campos requeridos con valores válidos.');
+          return;
+        }
+
+        const data = { name, price, sku, category, stock, image, taxRate: 0.13 };
+
+        if (id) {
+          await state.updateProduct(id, data);
+        } else {
+          await state.addProduct(data);
+        }
+
+        this.closeProductEditor();
+        this.renderStockTable(document.getElementById('stock-search-input')?.value.toLowerCase() || '');
+        this.renderProducts();
+      });
+    }
+  }
+
+  openProductEditor(product = null) {
+    const titleEl = document.getElementById('product-editor-title');
+    const idInput = document.getElementById('prod-edit-id');
+    const nameInput = document.getElementById('prod-edit-name');
+    const priceInput = document.getElementById('prod-edit-price');
+    const skuInput = document.getElementById('prod-edit-sku');
+    const catInput = document.getElementById('prod-edit-category');
+    const stockInput = document.getElementById('prod-edit-stock');
+    const imgInput = document.getElementById('prod-edit-image');
+    const previewImg = document.getElementById('prod-edit-preview');
+
+    if (product) {
+      if (titleEl) titleEl.textContent = 'Editar Producto';
+      if (idInput) idInput.value = product.id;
+      if (nameInput) nameInput.value = product.name;
+      if (priceInput) priceInput.value = product.price;
+      if (skuInput) skuInput.value = product.sku;
+      if (catInput) catInput.value = product.category;
+      if (stockInput) stockInput.value = product.stock;
+      if (imgInput) imgInput.value = product.image;
+      if (previewImg) previewImg.src = product.image;
+    } else {
+      const nextId = 'prod_' + Date.now();
+      const nextSku = 'SKU-' + (state.products.length + 1).toString().padStart(3, '0');
+      const defaultImg = 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&w=600&q=80';
+
+      if (titleEl) titleEl.textContent = 'Crear Nuevo Producto';
+      if (idInput) idInput.value = '';
+      if (nameInput) nameInput.value = '';
+      if (priceInput) priceInput.value = '2500';
+      if (skuInput) skuInput.value = nextSku;
+      if (catInput) catInput.value = 'cafeteria';
+      if (stockInput) stockInput.value = '50';
+      if (imgInput) imgInput.value = defaultImg;
+      if (previewImg) previewImg.src = defaultImg;
+    }
+
+    if (this.productEditorModal) {
+      this.productEditorModal.classList.remove('hidden');
+      this.productEditorModal.classList.add('flex');
+      nameInput?.focus();
+    }
+  }
+
+  closeProductEditor() {
+    if (this.productEditorModal) {
+      this.productEditorModal.classList.add('hidden');
+      this.productEditorModal.classList.remove('flex');
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -530,12 +680,14 @@ class DeltaPOSApp {
       tr.className = 'hover:bg-slate-50 transition-colors';
       tr.innerHTML = `
         <td class="p-3 font-semibold text-slate-800 flex items-center gap-2">
-          <img src="${p.image}" alt="${p.name}" class="w-8 h-8 rounded-lg object-cover">
-          <span>${p.name}</span>
+          <img src="${p.image}" alt="${p.name}" class="w-8 h-8 rounded-lg object-cover border border-slate-200">
+          <span class="truncate max-w-[180px] font-bold" title="${p.name}">${p.name}</span>
         </td>
-        <td class="p-3 text-slate-500 font-mono">${p.sku}</td>
-        <td class="p-3 text-slate-500 uppercase text-[10px] font-bold">${p.category}</td>
-        <td class="p-3 font-bold text-slate-900">${CartController.formatMoney(p.price)}</td>
+        <td class="p-3 text-slate-500 font-mono text-[11px]">${p.sku}</td>
+        <td class="p-3 text-slate-600 uppercase text-[10px] font-extrabold">
+          <span class="px-2 py-0.5 rounded-md bg-slate-100">${p.category}</span>
+        </td>
+        <td class="p-3 font-black text-slate-900">${CartController.formatMoney(p.price)}</td>
         <td class="p-3 text-center">
           <span class="px-2.5 py-1 rounded-full font-bold text-xs ${
             p.stock <= 5 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'
@@ -543,10 +695,20 @@ class DeltaPOSApp {
             ${p.stock} un.
           </span>
         </td>
-        <td class="p-3 text-right">
+        <td class="p-3 text-center">
           <div class="inline-flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
-            <button class="stock-minus-btn w-6 h-6 rounded bg-white hover:bg-slate-200 text-xs font-bold shadow-xs" data-id="${p.id}">-</button>
-            <button class="stock-plus-btn w-6 h-6 rounded bg-white hover:bg-slate-200 text-xs font-bold shadow-xs" data-id="${p.id}">+</button>
+            <button class="stock-minus-btn w-6 h-6 rounded bg-white hover:bg-slate-200 text-xs font-bold shadow-xs cursor-pointer" data-id="${p.id}">-</button>
+            <button class="stock-plus-btn w-6 h-6 rounded bg-white hover:bg-slate-200 text-xs font-bold shadow-xs cursor-pointer" data-id="${p.id}">+</button>
+          </div>
+        </td>
+        <td class="p-3 text-right">
+          <div class="inline-flex items-center gap-1.5">
+            <button class="edit-product-btn px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-700 text-xs font-bold transition-colors cursor-pointer" data-id="${p.id}">
+              ✏️ Editar
+            </button>
+            <button class="delete-product-btn p-1 rounded-lg bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 text-xs font-bold transition-colors cursor-pointer" title="Eliminar producto" data-id="${p.id}">
+              🗑️
+            </button>
           </div>
         </td>
       `;
@@ -563,6 +725,18 @@ class DeltaPOSApp {
         state.saveState();
         this.renderStockTable(query);
         this.renderProducts();
+      });
+
+      tr.querySelector('.edit-product-btn').addEventListener('click', () => {
+        this.openProductEditor(p);
+      });
+
+      tr.querySelector('.delete-product-btn').addEventListener('click', async () => {
+        if (confirm(`¿Deseas eliminar el producto "${p.name}" del catálogo?`)) {
+          await state.deleteProduct(p.id);
+          this.renderStockTable(query);
+          this.renderProducts();
+        }
       });
 
       tbody.appendChild(tr);
