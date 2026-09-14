@@ -309,10 +309,19 @@ export class CajaController {
     const tbodyVentas = document.getElementById('caja-ventas-table-body');
     if (tbodyVentas) {
       tbodyVentas.innerHTML = '';
-      if (!stats.ventasTurno || stats.ventasTurno.length === 0) {
+      
+      const seen = new Set();
+      const uniqueVentas = (stats.ventasTurno || []).filter(v => {
+        const key = v.ticketNumber ? `ticket_${v.ticketNumber}` : (v.id || JSON.stringify(v));
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (uniqueVentas.length === 0) {
         tbodyVentas.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 text-xs">No se han registrado ventas cobradas durante este turno aún.</td></tr>`;
       } else {
-        stats.ventasTurno.forEach(v => {
+        uniqueVentas.forEach(v => {
           const tr = document.createElement('tr');
           tr.className = 'hover:bg-slate-50 text-xs border-b border-slate-100';
           const hora = new Date(v.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

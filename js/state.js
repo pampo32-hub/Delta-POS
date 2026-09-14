@@ -88,14 +88,14 @@ class StateManager {
     const savedCounter = localStorage.getItem(STORAGE_KEYS.TICKET_COUNTER);
     this.ticketCounter = savedCounter ? parseInt(savedCounter, 10) : 1001;
 
-    // Historial de ventas completadas (con deduplicación por ID / ticket)
+    // Historial de ventas completadas (con deduplicación estricta por ticket)
     const savedHistory = localStorage.getItem(STORAGE_KEYS.SALES_HISTORY);
     if (savedHistory) {
       try {
         const parsed = JSON.parse(savedHistory);
         const seen = new Set();
         this.salesHistory = (Array.isArray(parsed) ? parsed : []).filter(s => {
-          const key = s.id || `${s.ticketNumber}_${Math.floor(new Date(s.completedAt).getTime() / 15000)}`;
+          const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
           if (seen.has(key)) return false;
           seen.add(key);
           return true;
@@ -157,14 +157,14 @@ class StateManager {
         }
       }
 
-      // 3. Sincronizar historial de ventas (con deduplicación)
+      // 3. Sincronizar historial de ventas (con deduplicación estricta por ticket)
       const salesRes = await fetch('/api/sales');
       if (salesRes.ok) {
         const sales = await salesRes.json();
         if (Array.isArray(sales)) {
           const seen = new Set();
           this.salesHistory = sales.filter(s => {
-            const key = s.id || `${s.ticketNumber}_${Math.floor(new Date(s.completedAt).getTime() / 15000)}`;
+            const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
@@ -258,14 +258,10 @@ class StateManager {
     const order = this.getCurrentOrder();
     if (!order || !order.items || order.items.length === 0) return null;
 
-    // Verificar si ya existe una venta completada reciente para este ticket
-    const recentDuplicate = this.salesHistory.find(s => 
-      s.ticketNumber === order.ticketNumber && 
-      s.tableId === this.activeTableId &&
-      Math.abs(Date.now() - new Date(s.completedAt).getTime()) < 15000
-    );
-    if (recentDuplicate) {
-      return recentDuplicate;
+    // Verificar si ya existe una venta registrada con este número de ticket
+    const existingSale = this.salesHistory.find(s => s.ticketNumber === order.ticketNumber);
+    if (existingSale) {
+      return existingSale;
     }
 
     const saleId = 'SALE-' + Date.now();
@@ -483,7 +479,7 @@ class StateManager {
     const seenTickets = new Set();
     const ventasTurno = (this.salesHistory || []).filter(sale => {
       if (new Date(sale.completedAt) < fechaApertura) return false;
-      const key = sale.id || `${sale.ticketNumber}_${Math.floor(new Date(sale.completedAt).getTime() / 15000)}`;
+      const key = sale.ticketNumber ? `ticket_${sale.ticketNumber}` : (sale.id || JSON.stringify(sale));
       if (seenTickets.has(key)) return false;
       seenTickets.add(key);
       return true;

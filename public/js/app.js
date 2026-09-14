@@ -747,13 +747,20 @@ class DeltaPOSApp {
   // RENDERIZADO DEL CORTE DE CAJA / REPORTES
   // --------------------------------------------------------------------------
   openReportsModal() {
-    const history = state.salesHistory || [];
-    const totalSales = history.reduce((acc, sale) => acc + sale.payment.totals.total, 0);
+    const seen = new Set();
+    const history = (state.salesHistory || []).filter(s => {
+      const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    const totalSales = history.reduce((acc, sale) => acc + (sale.payment?.totals?.total || 0), 0);
     const countSales = history.length;
     const avgSale = countSales > 0 ? totalSales / countSales : 0;
     const cashSales = history
-      .filter(s => s.payment.method === 'cash')
-      .reduce((acc, s) => acc + s.payment.totals.total, 0);
+      .filter(s => (s.payment?.method || '').toLowerCase() === 'cash' || (s.payment?.method || '').toLowerCase().includes('efectivo'))
+      .reduce((acc, s) => acc + (s.payment?.totals?.total || 0), 0);
 
     document.getElementById('metric-total-sales').textContent = CartController.formatMoney(totalSales);
     document.getElementById('metric-count-sales').textContent = countSales;

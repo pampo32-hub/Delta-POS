@@ -224,13 +224,12 @@ app.post('/api/sales', async (req, res) => {
 
     const saleId = id || ('SALE-' + Date.now());
 
-    // Verificar si ya existe una venta con este ID o con este ticket_numero en la misma mesa recientemente
+    // Verificar si ya existe una venta con este número de ticket o ID
     const checkDuplicate = await client.query(
       `SELECT * FROM ventas 
-       WHERE id = $1 
-          OR (ticket_numero = $2 AND mesa_id = $3 AND creado_en > NOW() - INTERVAL '30 seconds') 
+       WHERE id = $1 OR ticket_numero = $2 
        LIMIT 1;`,
-      [saleId, ticketNumber, tableId]
+      [saleId, ticketNumber]
     );
 
     if (checkDuplicate.rowCount > 0) {
@@ -290,7 +289,12 @@ app.post('/api/sales', async (req, res) => {
 // 6. OBTENER HISTORIAL DE VENTAS
 app.get('/api/sales', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM ventas ORDER BY creado_en DESC LIMIT 100;');
+    const result = await query(`
+      SELECT DISTINCT ON (ticket_numero) * 
+      FROM ventas 
+      ORDER BY ticket_numero DESC, creado_en DESC 
+      LIMIT 100;
+    `);
     res.json(result.rows.map(v => ({
       id: v.id,
       ticketNumber: v.ticket_numero,
