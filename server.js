@@ -293,7 +293,6 @@ app.post('/api/sales', async (req, res) => {
 // 6. OBTENER HISTORIAL DE VENTAS
 app.get('/api/sales', async (req, res) => {
   try {
-    const result = await query('SELECT * FROM ventas ORDER BY creado_en DESC LIMIT 100;');
     const result = await query(`
       SELECT DISTINCT ON (ticket_numero) * 
       FROM ventas 
@@ -479,6 +478,7 @@ app.get('/api/caja/historial', async (req, res) => {
   }
 });
 
+// 7. RUTA PRINCIPAL - Servir aplicación SPA
 // ============================================================================
 // RUTAS DEL PANEL DE ADMINISTRACIÓN (GAMMA POS STYLE)
 // ============================================================================

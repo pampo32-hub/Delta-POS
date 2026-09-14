@@ -101,7 +101,7 @@ export async function initDatabase() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS caja_movimientos (
         id VARCHAR(50) PRIMARY KEY,
-        caja_id VARCHAR(50) REFERENCES cajas(id) ON DELETE CASCADE,
+        caja_id VARCHAR(50),
         tipo VARCHAR(20) NOT NULL,
         monto NUMERIC(12, 2) NOT NULL,
         concepto TEXT NOT NULL,
@@ -110,6 +110,7 @@ export async function initDatabase() {
       );
     `);
 
+    // 6. Tabla de Ajustes / Configuración
     // 6. Tabla de Ajustes / Configuración General
     await pool.query(`
       CREATE TABLE IF NOT EXISTS configuracion (
@@ -177,6 +178,10 @@ export async function initDatabase() {
       DELETE FROM ventas v1
       USING ventas v2
       WHERE v1.ctid < v2.ctid
+        AND v1.ticket_numero = v2.ticket_numero
+        AND v1.mesa_id = v2.mesa_id
+        AND v1.total = v2.total
+        AND ABS(EXTRACT(EPOCH FROM (v1.creado_en - v2.creado_en))) < 60;
         AND v1.ticket_numero = v2.ticket_numero;
     `).catch(() => {});
 

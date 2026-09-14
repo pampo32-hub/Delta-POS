@@ -34,10 +34,17 @@ export class AdminController {
   }
 
   static bindEvents() {
-    // Botón de navegación lateral
+    // Botón de navegación lateral y botón superior
     const btnNavAdmin = document.getElementById('nav-admin-btn');
     if (btnNavAdmin) {
       btnNavAdmin.addEventListener('click', () => {
+        this.openAdminPanel();
+      });
+    }
+
+    const btnTopAdmin = document.getElementById('btn-top-admin');
+    if (btnTopAdmin) {
+      btnTopAdmin.addEventListener('click', () => {
         this.openAdminPanel();
       });
     }
@@ -287,14 +294,27 @@ export class AdminController {
   // FLUJO DE APERTURA DEL PANEL
   // --------------------------------------------------------------------------
   static openAdminPanel() {
-    if (this.isAdminAuthorized) {
+    let isLoggedAdmin = false;
+    try {
+      const userStr = localStorage.getItem('delta_user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        if (u.username === 'admin' || u.role === 'admin') isLoggedAdmin = true;
+      }
+    } catch (e) {}
+
+    if (this.isAdminAuthorized || isLoggedAdmin) {
+      this.isAdminAuthorized = true;
       this.showPanelGrid();
     } else {
       this.openModal(this.modalPin);
       const input = document.getElementById('admin-pin-input');
       if (input) {
-        input.value = '';
-        setTimeout(() => input.focus(), 150);
+        input.value = '1234';
+        setTimeout(() => {
+          input.focus();
+          input.select();
+        }, 150);
       }
     }
   }
@@ -751,3 +771,4 @@ export class AdminController {
     }
   }
 }
+

@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   TICKET_COUNTER: 'delta_pos_ticket_counter',
   CAJA_ACTIVA: 'delta_pos_caja_activa',
   CAJA_MOVIMIENTOS: 'delta_pos_caja_movimientos',
+  CAJA_HISTORIAL: 'delta_pos_caja_historial'
   CAJA_HISTORIAL: 'delta_pos_caja_historial',
   USERS: 'delta_pos_users',
   INSUMOS: 'delta_pos_insumos',
@@ -186,6 +187,7 @@ class StateManager {
     // Filtros de vista activa
     this.selectedCategory = 'todos';
     this.searchQuery = '';
+    this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales'
     this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales', 'admin'
 
     // Asegurar que la mesa activa tenga un objeto comanda inicializado
@@ -223,6 +225,7 @@ class StateManager {
         }
       }
 
+      // 3. Sincronizar historial de ventas (con deduplicación)
       // 3. Sincronizar historial de ventas (con deduplicación estricta por ticket)
       const salesRes = await fetch('/api/sales');
       if (salesRes.ok) {
@@ -230,6 +233,7 @@ class StateManager {
         if (Array.isArray(sales)) {
           const seen = new Set();
           this.salesHistory = sales.filter(s => {
+            const key = s.id || `${s.ticketNumber}_${Math.floor(new Date(s.completedAt).getTime() / 15000)}`;
             const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
             if (seen.has(key)) return false;
             seen.add(key);

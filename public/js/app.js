@@ -205,6 +205,13 @@ class DeltaPOSApp {
       });
     }
 
+    if (this.navAdminBtn) {
+      this.navAdminBtn.addEventListener('click', () => {
+        this.setActiveNav('admin');
+        AdminController.openAdminPanel();
+      });
+    }
+
     // ------------------------------------------------------------------------
     // EVENTOS DEL MODAL DE MESAS
     // ------------------------------------------------------------------------
@@ -377,10 +384,10 @@ class DeltaPOSApp {
   }
 
   setActiveNav(tab) {
-    const navButtons = [this.navPosBtn, this.navTablesBtn, this.navStockBtn, this.navCajaBtn, this.navReportsBtn];
+    const navButtons = [this.navPosBtn, this.navTablesBtn, this.navStockBtn, this.navCajaBtn, this.navReportsBtn, this.navAdminBtn];
     navButtons.forEach(btn => {
       if (!btn) return;
-      btn.classList.remove('text-slate-900', 'bg-slate-100', 'active');
+      btn.classList.remove('text-slate-900', 'bg-slate-100', 'active', 'bg-amber-100', 'text-amber-800');
       btn.classList.add('text-slate-400');
     });
 
@@ -389,7 +396,8 @@ class DeltaPOSApp {
       tables: this.navTablesBtn,
       stock: this.navStockBtn,
       caja: this.navCajaBtn,
-      reports: this.navReportsBtn
+      reports: this.navReportsBtn,
+      admin: this.navAdminBtn
     };
 
     if (targetMap[tab]) {
@@ -750,6 +758,8 @@ class DeltaPOSApp {
   // RENDERIZADO DEL CORTE DE CAJA / REPORTES
   // --------------------------------------------------------------------------
   openReportsModal() {
+    const history = state.salesHistory || [];
+    const totalSales = history.reduce((acc, sale) => acc + sale.payment.totals.total, 0);
     const seen = new Set();
     const history = (state.salesHistory || []).filter(s => {
       const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
@@ -762,6 +772,8 @@ class DeltaPOSApp {
     const countSales = history.length;
     const avgSale = countSales > 0 ? totalSales / countSales : 0;
     const cashSales = history
+      .filter(s => s.payment.method === 'cash')
+      .reduce((acc, s) => acc + s.payment.totals.total, 0);
       .filter(s => (s.payment?.method || '').toLowerCase() === 'cash' || (s.payment?.method || '').toLowerCase().includes('efectivo'))
       .reduce((acc, s) => acc + (s.payment?.totals?.total || 0), 0);
 
