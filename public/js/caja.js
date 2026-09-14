@@ -309,7 +309,6 @@ export class CajaController {
     const tbodyVentas = document.getElementById('caja-ventas-table-body');
     if (tbodyVentas) {
       tbodyVentas.innerHTML = '';
-      if (!stats.ventasTurno || stats.ventasTurno.length === 0) {
       
       const seen = new Set();
       const uniqueVentas = (stats.ventasTurno || []).filter(v => {
@@ -322,7 +321,6 @@ export class CajaController {
       if (uniqueVentas.length === 0) {
         tbodyVentas.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 text-xs">No se han registrado ventas cobradas durante este turno aún.</td></tr>`;
       } else {
-        stats.ventasTurno.forEach(v => {
         uniqueVentas.forEach(v => {
           const tr = document.createElement('tr');
           tr.className = 'hover:bg-slate-50 text-xs border-b border-slate-100';

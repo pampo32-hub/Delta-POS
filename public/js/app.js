@@ -17,11 +17,20 @@ class DeltaPOSApp {
   }
 
   init() {
-    // Inicializar módulos auxiliares
-    PaymentController.init();
-    PrintController.init();
-    CajaController.init();
-    AdminController.init();
+    // Inicializar módulos auxiliares de forma segura
+    try { PaymentController.init(); } catch (e) { console.error('PaymentController:', e); }
+    try { PrintController.init(); } catch (e) { console.error('PrintController:', e); }
+    try { CajaController.init(); } catch (e) { console.error('CajaController:', e); }
+    try { AdminController.init(); } catch (e) { console.error('AdminController:', e); }
+
+    // Exponer ayudantes globales
+    window.DeltaPOS = this;
+    window.openPOS = () => { this.setActiveNav('pos'); this.closeAllModals(); };
+    window.openTables = () => { this.setActiveNav('tables'); this.openTablesModal(); };
+    window.openStock = () => { this.setActiveNav('stock'); this.openStockModal(); };
+    window.openCaja = () => { this.setActiveNav('caja'); this.openCajaModal(); };
+    window.openReports = () => { this.setActiveNav('reports'); this.openReportsModal(); };
+    window.openAdmin = () => { this.setActiveNav('admin'); AdminController.openAdminPanel(); };
 
     // Referencias del DOM
     this.categoriesContainer = document.getElementById('categories-container');
@@ -80,30 +89,34 @@ class DeltaPOSApp {
     this.loginForm = document.getElementById('login-form');
     this.logoutBtn = document.getElementById('logout-btn');
 
-    this.checkSession();
-    this.bindEvents();
-    this.bindProductEditorEvents();
-    this.renderCategories();
-    this.renderTablesSelector();
-    this.renderProducts();
-    this.renderComanda();
-    this.startClock();
+    try { this.checkSession(); } catch (e) {}
+    try { this.bindEvents(); } catch (e) { console.error('bindEvents:', e); }
+    try { this.bindProductEditorEvents(); } catch (e) {}
+    try { this.renderCategories(); } catch (e) {}
+    try { this.renderTablesSelector(); } catch (e) {}
+    try { this.renderProducts(); } catch (e) {}
+    try { this.renderComanda(); } catch (e) {}
+    try { this.startClock(); } catch (e) {}
 
     // Suscribirse a cambios en el estado
     state.subscribe(() => {
-      this.renderProducts();
-      this.renderComanda();
-      this.renderTablesSelector();
-      if (!this.tablesModal.classList.contains('hidden')) {
-        this.renderTablesGrid();
+      try {
+        this.renderProducts();
+        this.renderComanda();
+        this.renderTablesSelector();
+        if (this.tablesModal && !this.tablesModal.classList.contains('hidden')) {
+          this.renderTablesGrid();
+        }
+        if (this.stockModal && !this.stockModal.classList.contains('hidden')) {
+          this.renderStockTable(document.getElementById('stock-search-input')?.value.toLowerCase() || '');
+        }
+        if (this.cajaModal && !this.cajaModal.classList.contains('hidden')) {
+          CajaController.render();
+        }
+        CajaController.updateNavBadge();
+      } catch (e) {
+        console.error('State subscriber error:', e);
       }
-      if (!this.stockModal.classList.contains('hidden')) {
-        this.renderStockTable(document.getElementById('stock-search-input')?.value.toLowerCase() || '');
-      }
-      if (!this.cajaModal.classList.contains('hidden')) {
-        CajaController.render();
-      }
-      CajaController.updateNavBadge();
     });
   }
 
@@ -384,11 +397,9 @@ class DeltaPOSApp {
   }
 
   setActiveNav(tab) {
-    const navButtons = [this.navPosBtn, this.navTablesBtn, this.navStockBtn, this.navCajaBtn, this.navReportsBtn];
     const navButtons = [this.navPosBtn, this.navTablesBtn, this.navStockBtn, this.navCajaBtn, this.navReportsBtn, this.navAdminBtn];
     navButtons.forEach(btn => {
       if (!btn) return;
-      btn.classList.remove('text-slate-900', 'bg-slate-100', 'active');
       btn.classList.remove('text-slate-900', 'bg-slate-100', 'active', 'bg-amber-100', 'text-amber-800');
       btn.classList.add('text-slate-400');
     });
@@ -398,7 +409,6 @@ class DeltaPOSApp {
       tables: this.navTablesBtn,
       stock: this.navStockBtn,
       caja: this.navCajaBtn,
-      reports: this.navReportsBtn
       reports: this.navReportsBtn,
       admin: this.navAdminBtn
     };
@@ -761,8 +771,6 @@ class DeltaPOSApp {
   // RENDERIZADO DEL CORTE DE CAJA / REPORTES
   // --------------------------------------------------------------------------
   openReportsModal() {
-    const history = state.salesHistory || [];
-    const totalSales = history.reduce((acc, sale) => acc + sale.payment.totals.total, 0);
     const seen = new Set();
     const history = (state.salesHistory || []).filter(s => {
       const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
@@ -775,8 +783,6 @@ class DeltaPOSApp {
     const countSales = history.length;
     const avgSale = countSales > 0 ? totalSales / countSales : 0;
     const cashSales = history
-      .filter(s => s.payment.method === 'cash')
-      .reduce((acc, s) => acc + s.payment.totals.total, 0);
       .filter(s => (s.payment?.method || '').toLowerCase() === 'cash' || (s.payment?.method || '').toLowerCase().includes('efectivo'))
       .reduce((acc, s) => acc + (s.payment?.totals?.total || 0), 0);
 

@@ -1,5 +1,6 @@
 /**
  * PROYECTO DELTA POS - Gestión de Estado Global (State Management)
+ * PROYECTO DELTA POS - Gestión de Estado Global (Sincronizado con API y PostgreSQL)
  * Sincronizado con API y PostgreSQL (Gamma POS Complete Features)
  */
 
@@ -103,6 +104,7 @@ class StateManager {
     // Cargar productos
     const savedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
     let prods = savedProducts ? JSON.parse(savedProducts) : INITIAL_PRODUCTS;
+    // Si los productos guardados tienen precios en dólares (menores a 100), migrar a Colones
     if (prods.some(p => p.price < 100)) {
       prods = INITIAL_PRODUCTS;
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(prods));
@@ -136,6 +138,7 @@ class StateManager {
     const savedCounter = localStorage.getItem(STORAGE_KEYS.TICKET_COUNTER);
     this.ticketCounter = savedCounter ? parseInt(savedCounter, 10) : 1001;
 
+    // Historial de ventas completadas (con deduplicación por ID / ticket)
     // Historial de ventas completadas (con deduplicación estricta por ticket)
     const savedHistory = localStorage.getItem(STORAGE_KEYS.SALES_HISTORY);
     if (savedHistory) {
@@ -143,9 +146,9 @@ class StateManager {
         const parsed = JSON.parse(savedHistory);
         const seen = new Set();
         this.salesHistory = (Array.isArray(parsed) ? parsed : []).filter(s => {
-          const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
-          if (seen.has(key)) return false;
-          seen.add(key);
+          const itemKey = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
+          if (seen.has(itemKey)) return false;
+          seen.add(itemKey);
           return true;
         });
       } catch (e) {
@@ -183,6 +186,8 @@ class StateManager {
     // Filtros de vista activa
     this.selectedCategory = 'todos';
     this.searchQuery = '';
+    this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales'
+    this.activeView = 'pos'; // 'pos', 'tables', 'stock', 'caja', 'sales', 'admin'
     this.activeView = 'pos';
 
     // Asegurar que la mesa activa tenga un objeto comanda inicializado
@@ -220,6 +225,7 @@ class StateManager {
         }
       }
 
+      // 3. Sincronizar historial de ventas (con deduplicación)
       // 3. Sincronizar historial de ventas (con deduplicación estricta por ticket)
       const salesRes = await fetch('/api/sales');
       if (salesRes.ok) {
@@ -227,9 +233,9 @@ class StateManager {
         if (Array.isArray(sales)) {
           const seen = new Set();
           this.salesHistory = sales.filter(s => {
-            const key = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
-            if (seen.has(key)) return false;
-            seen.add(key);
+            const itemKey = s.ticketNumber ? `ticket_${s.ticketNumber}` : (s.id || JSON.stringify(s));
+            if (seen.has(itemKey)) return false;
+            seen.add(itemKey);
             return true;
           });
         }
@@ -438,6 +444,7 @@ class StateManager {
     this.saveState();
     this.notify();
 
+    // Sincronizar backend si está disponible
     try {
       await fetch('/api/products', {
         method: 'POST',
@@ -464,6 +471,7 @@ class StateManager {
     this.saveState();
     this.notify();
 
+    // Sincronizar backend si está disponible
     try {
       await fetch(`/api/products/${productId}`, {
         method: 'PUT',
@@ -480,6 +488,7 @@ class StateManager {
     this.saveState();
     this.notify();
 
+    // Sincronizar backend
     try {
       await fetch(`/api/products/${productId}`, { method: 'DELETE' });
     } catch (e) {}
@@ -570,9 +579,9 @@ class StateManager {
     const seenTickets = new Set();
     const ventasTurno = (this.salesHistory || []).filter(sale => {
       if (new Date(sale.completedAt) < fechaApertura) return false;
-      const key = sale.ticketNumber ? `ticket_${sale.ticketNumber}` : (sale.id || JSON.stringify(sale));
-      if (seenTickets.has(key)) return false;
-      seenTickets.add(key);
+      const itemKey = sale.ticketNumber ? `ticket_${sale.ticketNumber}` : (sale.id || JSON.stringify(sale));
+      if (seenTickets.has(itemKey)) return false;
+      seenTickets.add(itemKey);
       return true;
     });
 
@@ -588,6 +597,7 @@ class StateManager {
       } else if (method === 'card' || method.includes('tarjeta')) {
         ventasTarjeta += total;
       } else {
+        ventasSinpe += total; // transferencias y Sinpe Móvil
         ventasSinpe += total;
       }
     });
@@ -859,3 +869,4 @@ class StateManager {
 }
 
 export const state = new StateManager();
+
